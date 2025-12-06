@@ -1,0 +1,43 @@
+
+/* Standard CSS Overrides - No PostCSS required */
+
+html, body, #root {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: #F7F8FA;
+  color: #0E1A2B;
+  font-family: 'Inter', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  font-feature-settings: "cv11", "ss01";
+}
+
+/* Premium Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background-color: #D4D4D8;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background-color: #A1A1AA;
+}
+
+/* Map specific override */
+.leaflet-container {
+  background-color: #F8F9FA;
+  font-family: 'Inter', sans-serif;
+  z-index: 0;
+  height: 100%;
+  width: 100%;
+}
