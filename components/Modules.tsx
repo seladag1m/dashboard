@@ -438,7 +438,8 @@ export const ReportsModule: React.FC<{ user: User, onAnalyze: (c: string) => voi
 
   const handleGenerate = async () => {
     setGenerating(true);
-    const newReport = await generateStrategicReport(user);
+    // Use user.language if present, otherwise default to English
+    const newReport = await generateStrategicReport(user, user.language || 'English');
     if (newReport) {
       setReports(prev => [newReport, ...prev]);
       setSelectedReport(newReport);

@@ -255,7 +255,7 @@ export const fetchRealTimeIntelligence = async (user: User, type: 'competitors' 
   const ai = new GoogleGenAI({ apiKey });
   
   let prompt = "";
-  // ... Prompts omitted for brevity (same as original, they are safe) ...
+  // Keep prompts primarily in English for reliable JSON structure, but could append language context if needed for text fields.
   if (type === 'competitors') prompt = `Identify top 3 competitors for ${user.companyName} in ${user.industry}, ${user.region}. Return JSON: { "competitors": [{ "id": "1", "name": "Name", "marketShare": 20, "sentiment": 80, "growth": 5, "pricingStatus": "stable", "location": { "lat": 0, "lng": 0, "city": "City" } }] }`;
   else if (type === 'market') prompt = `Analyze ${user.industry} in ${user.region} for ${user.size} company. Return JSON: { "metrics": [{"label": "TAM", "val": "$1B", "change": "+5%", "sub": "Total"}], "dynamics": [{"name": "A", "x": 50, "y": 50, "z": 100, "sentiment": 50}], "geoPerformance": [{"lat": 0, "lng": 0, "radius": 10, "color": "blue", "fillOpacity": 0.5, "title": "Region", "info": "Info"}], "personalizedTrends": [{"name": "Trend", "relevance": 90, "growth": "+10%", "context": "Context"}] }`;
   else if (type === 'alerts') prompt = `Find news/risks for ${user.industry} in ${user.region}. Return JSON: { "alerts": [{"id": "1", "type": "critical", "title": "Title", "desc": "Desc", "time": "Now"}] }`;
@@ -357,7 +357,7 @@ export const generateChatResponse = async function* (
   }
 };
 
-export const generateStrategicReport = async (user: User): Promise<StrategicReport | null> => {
+export const generateStrategicReport = async (user: User, language: string = 'English'): Promise<StrategicReport | null> => {
   const apiKey = getApiKey();
   
   if (!apiKey) {
@@ -376,7 +376,7 @@ export const generateStrategicReport = async (user: User): Promise<StrategicRepo
   try {
     const ai = new GoogleGenAI({ apiKey });
     // Using flash model for better availability and speed
-    const prompt = `Generate Deep Dive Report for ${user.companyName}, ${user.industry}, ${user.region}. 
+    const prompt = `Generate Deep Dive Report for ${user.companyName}, ${user.industry}, ${user.region} written in ${language}. 
     Response MUST be valid JSON with fields: title, type (Risk/Opportunity), impactLevel (High/Medium), companiesInvolved (array of strings), summary, and content (Markdown format).`;
 
     const response = await ai.models.generateContent({

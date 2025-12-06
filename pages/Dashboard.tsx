@@ -11,6 +11,7 @@ import { Logo, Button, Input, Select, Modal } from '../components/UI';
 import { SalesAreaChart, CompetitorRadarChart } from '../components/Charts';
 import { CompetitorModule, MarketModule, AlertsModule, MarketingModule, ReportsModule, useLiveIntelligence } from '../components/Modules';
 import { db } from '../services/database';
+import { LanguageSelector } from '../components/LanguageSelector';
 
 interface DashboardProps {
   user: User;
@@ -244,6 +245,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout, onUpdateUs
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [aiContextTrigger, setAiContextTrigger] = useState<string | null>(null);
+  const [currentLanguage, setCurrentLanguage] = useState(user.language || 'English');
 
   const handleAIAnalyze = (context: string) => {
     setAiContextTrigger(context);
@@ -281,27 +283,35 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout, onUpdateUs
           <SidebarItem id="reports" icon={FileText} label="Reports" />
         </nav>
 
-        <div className="p-4 border-t border-bg-neutral space-y-2">
-           <button onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)} className="w-full flex items-center justify-center p-2 text-zinc-400 hover:text-accent hover:bg-bg-soft rounded-lg transition-colors">
-             {isSidebarCollapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
-           </button>
+        <div className="p-4 border-t border-bg-neutral space-y-4">
+           {!isSidebarCollapsed && (
+             <div className="px-2">
+                <LanguageSelector current={currentLanguage} onChange={setCurrentLanguage} />
+             </div>
+           )}
            
-           <div className={`bg-bg-soft/50 rounded-xl p-2 flex items-center gap-3 cursor-pointer hover:bg-bg-soft transition-colors ${isSidebarCollapsed ? 'justify-center' : ''}`} onClick={() => setIsProfileModalOpen(true)}>
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-zinc-800 to-black text-white flex items-center justify-center text-xs font-bold shadow-sm">
-                 {user.name[0]}
-              </div>
-              {!isSidebarCollapsed && (
-                 <div className="flex-1 overflow-hidden">
-                    <p className="text-xs font-bold text-text-primary truncate">{user.name}</p>
-                    <p className="text-[10px] text-text-secondary truncate">{user.companyName}</p>
-                 </div>
-              )}
+           <div className="space-y-2">
+             <button onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)} className="w-full flex items-center justify-center p-2 text-zinc-400 hover:text-accent hover:bg-bg-soft rounded-lg transition-colors">
+               {isSidebarCollapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
+             </button>
+             
+             <div className={`bg-bg-soft/50 rounded-xl p-2 flex items-center gap-3 cursor-pointer hover:bg-bg-soft transition-colors ${isSidebarCollapsed ? 'justify-center' : ''}`} onClick={() => setIsProfileModalOpen(true)}>
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-zinc-800 to-black text-white flex items-center justify-center text-xs font-bold shadow-sm">
+                   {user.name[0]}
+                </div>
+                {!isSidebarCollapsed && (
+                   <div className="flex-1 overflow-hidden">
+                      <p className="text-xs font-bold text-text-primary truncate">{user.name}</p>
+                      <p className="text-[10px] text-text-secondary truncate">{user.companyName}</p>
+                   </div>
+                )}
+             </div>
+             
+             <button onClick={onLogout} className={`w-full flex items-center gap-2 text-xs font-medium text-text-secondary hover:text-error hover:bg-error/5 p-2 rounded-lg transition-colors ${isSidebarCollapsed ? 'justify-center' : ''}`}>
+                <LogOut size={16} />
+                {!isSidebarCollapsed && "Sign Out"}
+             </button>
            </div>
-           
-           <button onClick={onLogout} className={`w-full flex items-center gap-2 text-xs font-medium text-text-secondary hover:text-error hover:bg-error/5 p-2 rounded-lg transition-colors ${isSidebarCollapsed ? 'justify-center' : ''}`}>
-              <LogOut size={16} />
-              {!isSidebarCollapsed && "Sign Out"}
-           </button>
         </div>
       </aside>
 
@@ -312,7 +322,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout, onUpdateUs
               <div className="h-[calc(100vh-80px)] rounded-2xl border border-bg-neutral shadow-sm overflow-hidden bg-white">
                  <ChatPanel 
                     user={user} 
-                    language="English"
+                    language={currentLanguage}
                     isCollapsed={isSidebarCollapsed} 
                     toggleCollapse={() => {}} 
                     externalTrigger={aiContextTrigger} 
@@ -324,7 +334,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout, onUpdateUs
             {activeTab === 'market' && <MarketModule user={user} onAnalyze={handleAIAnalyze} />}
             {activeTab === 'alerts' && <AlertsModule user={user} onAnalyze={handleAIAnalyze} />}
             {activeTab === 'marketing' && <MarketingModule user={user} onAnalyze={handleAIAnalyze} />}
-            {activeTab === 'reports' && <ReportsModule user={user} onAnalyze={handleAIAnalyze} />}
+            {activeTab === 'reports' && <ReportsModule user={{...user, language: currentLanguage}} onAnalyze={handleAIAnalyze} />}
          </div>
       </main>
 
