@@ -272,6 +272,7 @@ export const fetchRealTimeIntelligence = async (user: User, type: 'competitors' 
     });
 
     let cleanText = response.text || "";
+    // Robust parsing
     if (cleanText.includes('```json')) {
       cleanText = cleanText.split('```json')[1].split('```')[0];
     } else if (cleanText.includes('```')) {
@@ -374,10 +375,12 @@ export const generateStrategicReport = async (user: User): Promise<StrategicRepo
 
   try {
     const ai = new GoogleGenAI({ apiKey });
-    const prompt = `Generate Deep Dive Report for ${user.companyName}, ${user.industry}, ${user.region}. Return JSON: { "title": "Title", "type": "Risk", "impactLevel": "High", "companiesInvolved": ["A"], "summary": "Sum", "content": "Markdown" }`;
+    // Using flash model for better availability and speed
+    const prompt = `Generate Deep Dive Report for ${user.companyName}, ${user.industry}, ${user.region}. 
+    Response MUST be valid JSON with fields: title, type (Risk/Opportunity), impactLevel (High/Medium), companiesInvolved (array of strings), summary, and content (Markdown format).`;
 
     const response = await ai.models.generateContent({
-      model: 'gemini-3-pro-preview',
+      model: 'gemini-2.5-flash',
       contents: prompt,
       config: { 
         tools: [{ googleSearch: {} }],
@@ -386,13 +389,16 @@ export const generateStrategicReport = async (user: User): Promise<StrategicRepo
     });
 
     let cleanText = response.text?.trim() || "";
-    if (cleanText.startsWith('```json')) cleanText = cleanText.substring(7);
-    if (cleanText.startsWith('```')) cleanText = cleanText.substring(3);
-    if (cleanText.endsWith('```')) cleanText = cleanText.substring(0, cleanText.length - 3);
+    if (cleanText.includes('```json')) {
+        cleanText = cleanText.split('```json')[1].split('```')[0];
+    } else if (cleanText.includes('```')) {
+        cleanText = cleanText.split('```')[1].split('```')[0];
+    }
     
     const data = JSON.parse(cleanText.trim());
     return { id: Date.now().toString(), date: new Date().toLocaleDateString(), ...data };
   } catch (e) {
+    console.error("Report Generation Failed", e);
     return null;
   }
 };

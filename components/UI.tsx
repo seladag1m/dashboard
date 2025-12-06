@@ -172,15 +172,15 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, children, title }
 };
 
 // --- CARD ---
-// White background, 12–16px corner radius, Very soft border (#E5E7EB), Soft shadow
+// Updated to be flex flex-col so internal charts can take full height
 export const Card: React.FC<{ children: React.ReactNode; className?: string; title?: string; action?: React.ReactNode }> = ({ children, className = '', title, action }) => (
-  <div className={`bg-white rounded-2xl border border-bg-neutral shadow-card hover:shadow-soft transition-all duration-300 ${className}`}>
+  <div className={`bg-white rounded-2xl border border-bg-neutral shadow-card hover:shadow-soft transition-all duration-300 flex flex-col ${className}`}>
     {(title || action) && (
-      <div className="px-6 py-5 border-b border-bg-soft flex justify-between items-center">
+      <div className="px-6 py-5 border-b border-bg-soft flex justify-between items-center shrink-0">
         {title && <h3 className="font-semibold text-text-primary text-base">{title}</h3>}
         {action && <div>{action}</div>}
       </div>
     )}
-    <div className="p-6 md:p-8">{children}</div>
+    <div className="p-6 md:p-8 flex-1 min-h-0 relative">{children}</div>
   </div>
 );

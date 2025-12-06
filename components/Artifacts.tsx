@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
@@ -37,21 +38,33 @@ const ImageLoadingWidget: React.FC<{ title: string }> = ({ title }) => (
   </div>
 );
 
-const ImageWidget: React.FC<{ title: string; data: any }> = ({ title, data }) => (
-  <div className="my-6 w-full bg-white rounded-3xl border border-zinc-100 shadow-glass overflow-hidden group animate-fade-in hover:shadow-float transition-all duration-500">
-    <div className="px-6 py-4 border-b border-zinc-50 flex justify-between items-center bg-white/80 backdrop-blur-sm absolute top-0 left-0 right-0 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
-      <span className="text-xs font-bold text-zinc-600 uppercase tracking-widest flex items-center gap-2">
-        <Zap size={14} className="text-amber-500"/> {title}
-      </span>
-      <a href={data.base64} download={`consult-ai-${title.toLowerCase().replace(/\s+/g, '-')}.jpg`} className="p-2 bg-white rounded-full shadow-sm text-zinc-400 hover:text-primary transition-colors">
-        <Download size={16} />
-      </a>
+const ImageWidget: React.FC<{ title: string; data: any }> = ({ title, data }) => {
+  const handleDownload = (e: React.MouseEvent) => {
+    e.preventDefault();
+    const link = document.createElement('a');
+    link.href = data.base64;
+    link.download = `consult-ai-${title.toLowerCase().replace(/\s+/g, '-')}.jpg`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  return (
+    <div className="my-6 w-full bg-white rounded-3xl border border-zinc-100 shadow-glass overflow-hidden group animate-fade-in hover:shadow-float transition-all duration-500">
+      <div className="px-6 py-4 border-b border-zinc-50 flex justify-between items-center bg-white/80 backdrop-blur-sm absolute top-0 left-0 right-0 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
+        <span className="text-xs font-bold text-zinc-600 uppercase tracking-widest flex items-center gap-2">
+          <Zap size={14} className="text-amber-500"/> {title}
+        </span>
+        <button onClick={handleDownload} className="p-2 bg-white rounded-full shadow-sm text-zinc-400 hover:text-primary transition-colors cursor-pointer" title="Download Image">
+          <Download size={16} />
+        </button>
+      </div>
+      <div className="aspect-video bg-zinc-50 w-full relative overflow-hidden">
+        <img src={data.base64} alt={title} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
+      </div>
     </div>
-    <div className="aspect-video bg-zinc-50 w-full relative overflow-hidden">
-      <img src={data.base64} alt={title} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
-    </div>
-  </div>
-);
+  );
+};
 
 const KPIWidget: React.FC<{ title: string; data: any }> = ({ title, data }) => (
   <div className="my-8 animate-fade-in">
@@ -155,6 +168,28 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 const ChartWidget: React.FC<{ title: string; data: any }> = ({ title, data }) => {
   const [chartType, setChartType] = useState<'area' | 'bar' | 'line' | 'pie'>(data.chartType || 'area');
   const points = data.points || [];
+
+  const handleExportData = () => {
+    if (!points || points.length === 0) return;
+    
+    // Create CSV content
+    const headers = ['Label', 'Value'];
+    const rows = points.map((p: any) => [p.label, p.value]);
+    const csvContent = [
+      headers.join(','),
+      ...rows.map((r: any[]) => r.join(','))
+    ].join('\n');
+
+    // Create Blob and download
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `${title.replace(/\s+/g, '_').toLowerCase()}_data.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   const ChartIcon = () => {
      switch(chartType) {
@@ -279,7 +314,10 @@ const ChartWidget: React.FC<{ title: string; data: any }> = ({ title, data }) =>
             <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
             <span className="text-[10px] font-medium text-zinc-400">AI Generated Analysis</span>
          </div>
-         <button className="text-zinc-400 hover:text-primary transition-colors flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider group-hover:translate-x-1 transition-transform">
+         <button 
+           onClick={handleExportData}
+           className="text-zinc-400 hover:text-primary transition-colors flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider group-hover:translate-x-1 transition-transform"
+         >
             Export Data <Download size={12} />
          </button>
       </div>

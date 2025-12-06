@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect } from 'react';
 import { SimpleMarkdown } from './Markdown';
 import { 
@@ -148,7 +147,7 @@ export const CompetitorModule: React.FC<{ user: User, onAnalyze: (context: strin
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card title="Global Footprint" className="lg:col-span-2 min-h-[400px] p-0 overflow-hidden">
-          <div className="h-[400px]">
+          <div className="h-[400px] w-full">
              <RealMapWidget markers={markers} />
           </div>
         </Card>
@@ -310,10 +309,13 @@ export const MarketModule: React.FC<{ user: User, onAnalyze: (context: string) =
         {/* MARKET BUBBLE MATRIX */}
         <Card title="Market Dynamics Matrix" className="h-[400px] lg:col-span-2">
            <div className="h-full w-full flex flex-col">
-              <div className="flex-1 min-h-0">
-                 <MarketBubbleMatrix data={data.dynamics} />
+              <div className="flex-1 min-h-0 w-full h-full relative">
+                 {/* Explicitly adding a style to the chart container to ensure Recharts can calculate size */}
+                 <div className="absolute inset-0">
+                    <MarketBubbleMatrix data={data.dynamics} />
+                 </div>
               </div>
-              <div className="mt-2 flex items-center justify-between text-[10px] text-zinc-400 border-t border-zinc-50 pt-2">
+              <div className="mt-2 flex items-center justify-between text-[10px] text-zinc-400 border-t border-zinc-50 pt-2 shrink-0">
                  <div className="flex gap-3">
                     <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500"></span> Positive Sentiment</span>
                     <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-500"></span> Neutral</span>
@@ -338,7 +340,9 @@ export const MarketModule: React.FC<{ user: User, onAnalyze: (context: string) =
                  <span className="w-2 h-2 rounded-full bg-amber-500"></span> <span>Volatile</span>
               </div>
            </div>
-           <RealMapWidget circles={data.geoPerformance} />
+           <div className="w-full h-full">
+               <RealMapWidget circles={data.geoPerformance} />
+           </div>
         </Card>
 
       </div>
@@ -442,6 +446,34 @@ export const ReportsModule: React.FC<{ user: User, onAnalyze: (c: string) => voi
     setGenerating(false);
   };
 
+  const handleExportReport = () => {
+    if (!selectedReport) return;
+    
+    const content = `
+${selectedReport.title}
+Date: ${selectedReport.date}
+Impact: ${selectedReport.impactLevel}
+Type: ${selectedReport.type}
+Companies: ${selectedReport.companiesInvolved.join(', ')}
+
+SUMMARY
+${selectedReport.summary}
+
+----------------------------------------
+
+${selectedReport.content}
+    `;
+
+    const blob = new Blob([content], { type: 'text/markdown;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `${selectedReport.title.replace(/\s+/g, '_')}.md`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   if (selectedReport) {
     return (
        <div className="animate-fade-in bg-white rounded-3xl border border-zinc-200 shadow-xl overflow-hidden min-h-[600px] flex flex-col">
@@ -453,7 +485,7 @@ export const ReportsModule: React.FC<{ user: User, onAnalyze: (c: string) => voi
                 Back to Reports
              </button>
              <div className="flex gap-2">
-                <Button size="sm" variant="outline" icon={Download}>Export PDF</Button>
+                <Button size="sm" variant="outline" icon={Download} onClick={handleExportReport}>Export Report</Button>
                 <Button size="sm" variant="secondary" icon={Zap} onClick={() => onAnalyze(`I have questions about the report: "${selectedReport.title}". Specifically regarding...`)}>Ask AI</Button>
              </div>
           </div>
@@ -553,6 +585,16 @@ export const MarketingModule: React.FC<{ user: User, onAnalyze: (c: string) => v
     setIsGeneratingImg(false);
   };
 
+  const handleDownloadImage = () => {
+    if (!generatedImage) return;
+    const link = document.createElement('a');
+    link.href = generatedImage;
+    link.download = `campaign_${campaignName.replace(/\s+/g, '_').toLowerCase()}.png`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
        <div className="flex justify-between items-end">
@@ -642,7 +684,7 @@ export const MarketingModule: React.FC<{ user: User, onAnalyze: (c: string) => v
                       <div className="relative w-full h-full animate-fade-in group">
                          <img src={generatedImage} alt="Generated" className="w-full h-auto rounded-xl shadow-lg" />
                          <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                            <Button size="sm" variant="secondary" icon={Download}>Save</Button>
+                            <Button size="sm" variant="secondary" icon={Download} onClick={handleDownloadImage}>Save</Button>
                          </div>
                       </div>
                    ) : (

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { AuthPage } from './pages/Auth';
 import { Dashboard } from './pages/Dashboard';
@@ -9,7 +10,6 @@ const App: React.FC = () => {
   const [route, setRoute] = useState<AppRoute>(AppRoute.LOGIN);
   const [user, setUser] = useState<User | null>(null);
   const [isInitializing, setIsInitializing] = useState(true);
-  const [language, setLanguage] = useState('English');
 
   // Initialize Session
   useEffect(() => {
@@ -71,8 +71,6 @@ const App: React.FC = () => {
       user={user} 
       onLogout={handleLogout} 
       onUpdateUser={handleUpdateUser} 
-      language={language}
-      setLanguage={setLanguage}
     />
   );
 };

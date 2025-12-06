@@ -10,15 +10,12 @@ import { ChatPanel } from './Chat';
 import { Logo, Button, Input, Select, Modal } from '../components/UI';
 import { SalesAreaChart, CompetitorRadarChart } from '../components/Charts';
 import { CompetitorModule, MarketModule, AlertsModule, MarketingModule, ReportsModule, useLiveIntelligence } from '../components/Modules';
-import { LanguageSelector } from '../components/LanguageSelector';
 import { db } from '../services/database';
 
 interface DashboardProps {
   user: User;
   onLogout: () => void;
   onUpdateUser: (user: User) => void;
-  language: string;
-  setLanguage: (lang: string) => void;
 }
 
 // --- OVERVIEW MODULE ---
@@ -242,7 +239,7 @@ const EditProfileModal: React.FC<{ isOpen: boolean, onClose: () => void, user: U
   );
 };
 
-export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout, onUpdateUser, language, setLanguage }) => {
+export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout, onUpdateUser }) => {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
@@ -285,12 +282,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout, onUpdateUs
         </nav>
 
         <div className="p-4 border-t border-bg-neutral space-y-2">
-           {!isSidebarCollapsed && (
-             <div className="mb-2">
-                <LanguageSelector current={language} onChange={setLanguage} />
-             </div>
-           )}
-
            <button onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)} className="w-full flex items-center justify-center p-2 text-zinc-400 hover:text-accent hover:bg-bg-soft rounded-lg transition-colors">
              {isSidebarCollapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
            </button>
@@ -321,7 +312,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onLogout, onUpdateUs
               <div className="h-[calc(100vh-80px)] rounded-2xl border border-bg-neutral shadow-sm overflow-hidden bg-white">
                  <ChatPanel 
                     user={user} 
-                    language={language} 
+                    language="English"
                     isCollapsed={isSidebarCollapsed} 
                     toggleCollapse={() => {}} 
                     externalTrigger={aiContextTrigger} 
