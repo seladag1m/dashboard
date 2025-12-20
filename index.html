@@ -1,50 +1,51 @@
 
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="h-full antialiased">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <meta name="theme-color" content="#FFFFFF" />
-    <title>CONSULT AI</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
+    <title>CONSULT AI | Strategic Intelligence Engine</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
     
-    <!-- Tailwind CSS CDN: Failsafe for styling structure -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
       tailwind.config = {
         theme: {
           extend: {
             colors: {
-              // CONSULTING-GRADE PALETTE
-              bg: { main: '#FFFFFF', soft: '#F7F8FA', neutral: '#E3E7EC' },
-              text: { headline: '#0B0E11', primary: '#0E1A2B', secondary: '#4A5564', light: '#9CA3AF' },
-              accent: { DEFAULT: '#296CFF', hover: '#0B3CBA', light: '#EFF6FF', subtle: 'rgba(41, 108, 255, 0.1)' },
-              success: { DEFAULT: '#10B981', light: '#D1FAE5' },
-              warning: { DEFAULT: '#FBBF24', light: '#FEF3C7' },
-              error: { DEFAULT: '#EF4444', light: '#FEE2E2' },
-              zinc: { 900: '#0E1A2B', 800: '#1E293B', 500: '#4A5564', 400: '#94A3B8', 200: '#E3E7EC', 100: '#F7F8FA', 50: '#F9FAFB' }
+              brand: {
+                DEFAULT: '#0F172A',
+                blue: '#246BFD',
+                slate: '#F8FAFC',
+              }
             },
             fontFamily: {
-              sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
-              serif: ['Playfair Display', 'Georgia', 'serif'],
+              sans: ['Inter', 'system-ui', 'sans-serif'],
+              serif: ['Instrument Serif', 'Georgia', 'serif'],
+            },
+            borderRadius: {
+              '3xl': '24px',
+              '4xl': '32px',
             },
             boxShadow: {
-              'soft': '0 4px 20px -2px rgba(14, 26, 43, 0.08)',
-              'card': '0 2px 8px rgba(0, 0, 0, 0.04)',
-              'float': '0 12px 30px -10px rgba(0, 0, 0, 0.12)',
-              'glow': '0 0 15px rgba(41, 108, 255, 0.25)',
-              'input': '0 2px 6px rgba(0,0,0,0.02)',
+              'premium': '0 4px 6px -1px rgba(0, 0, 0, 0.01), 0 2px 4px -1px rgba(0, 0, 0, 0.006), 0 20px 25px -5px rgba(0, 0, 0, 0.03)',
             },
             animation: {
-              'fade-in': 'fadeIn 0.5s ease-out forwards',
-              'slide-up': 'slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards',
-              'scale-in': 'scaleIn 0.2s ease-out forwards',
+              'reveal': 'reveal 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+              'pulse-soft': 'pulse-soft 2s infinite',
             },
             keyframes: {
-              fadeIn: { '0%': { opacity: '0' }, '100%': { opacity: '1' } },
-              slideUp: { '0%': { transform: 'translateY(15px)', opacity: '0' }, '100%': { transform: 'translateY(0)', opacity: '1' } },
-              scaleIn: { '0%': { transform: 'scale(0.98)', opacity: '0' }, '100%': { transform: 'scale(1)', opacity: '1' } }
+              reveal: {
+                '0%': { opacity: '0', transform: 'translateY(10px)' },
+                '100%': { opacity: '1', transform: 'translateY(0)' },
+              },
+              'pulse-soft': {
+                '0%, 100%': { opacity: '1' },
+                '50%': { opacity: '0.6' },
+              }
             }
           }
         }
@@ -52,23 +53,29 @@
     </script>
 
     <script type="importmap">
-    {
-      "imports": {
-        "react/": "https://aistudiocdn.com/react@^19.2.1/",
-        "react": "https://aistudiocdn.com/react@^19.2.1",
-        "lucide-react": "https://aistudiocdn.com/lucide-react@^0.556.0",
-        "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.1/",
-        "@vitejs/plugin-react": "https://aistudiocdn.com/@vitejs/plugin-react@^5.1.1",
-        "recharts": "https://aistudiocdn.com/recharts@^3.5.1",
-        "vite": "https://aistudiocdn.com/vite@^7.2.6",
-        "@google/genai": "https://aistudiocdn.com/@google/genai@^1.31.0",
-        "leaflet": "https://aistudiocdn.com/leaflet@^1.9.4"
-      }
-    }
-    </script>
+{
+  "imports": {
+    "react/": "https://aistudiocdn.com/react@^19.2.1/",
+    "react": "https://aistudiocdn.com/react@^19.2.1",
+    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.556.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.1/",
+    "@vitejs/plugin-react": "https://aistudiocdn.com/@vitejs/plugin-react@^5.1.1",
+    "recharts": "https://aistudiocdn.com/recharts@^3.5.1",
+    "vite": "https://aistudiocdn.com/vite@^7.2.6",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.31.0",
+    "leaflet": "https://esm.sh/leaflet@^1.9.4"
+  }
+}
+</script>
+    <style>
+      body { background-color: #F3F5F7; }
+      ::-webkit-scrollbar { width: 5px; }
+      ::-webkit-scrollbar-thumb { background: #E2E8F0; border-radius: 10px; }
+      .sidebar-item-active { background-color: #246BFD; color: white; }
+    </style>
   </head>
-  <body>
-    <div id="root"></div>
+  <body class="h-full overflow-hidden">
+    <div id="root" class="h-full"></div>
     <script type="module" src="/index.tsx"></script>
   </body>
 </html>

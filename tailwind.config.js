@@ -13,46 +13,41 @@ export default {
   theme: {
     extend: {
       colors: {
-        // 1️⃣ COLOR SYSTEM (CONSULTING-GRADE PALETTE)
-        // Backgrounds
+        // Premium Palette
         bg: {
-          main: '#FFFFFF',
-          soft: '#F7F8FA',
-          neutral: '#E3E7EC',
+          main: '#F5F7FA', // Light cool grey for app background
+          soft: '#FFFFFF', // White for cards
+          neutral: '#E5E7EB', // Borders
         },
-        // Text
         text: {
-          headline: '#0B0E11', // H1, H2
-          primary: '#0E1A2B',  // Body
-          secondary: '#4A5564', // Subtext
-          light: '#9CA3AF',    // Placeholder/Disabled
+          headline: '#111827', // Almost black
+          primary: '#374151',  // Dark grey
+          secondary: '#6B7280', // Medium grey
+          light: '#9CA3AF',    // Light grey
         },
-        // Accent (High-trust AI blue)
         accent: {
-          DEFAULT: '#296CFF',  // Bright Consult Blue
-          hover: '#0B3CBA',    // Deep Indigo Blue
-          light: '#EFF6FF',    // 50 shade for backgrounds
-          subtle: 'rgba(41, 108, 255, 0.1)',
+          DEFAULT: '#246BFD',  // Vibrant Blue
+          hover: '#1B54D8',    // Darker Blue
+          light: '#E0EAFF',    // Very light blue
+          subtle: 'rgba(36, 107, 253, 0.08)',
         },
-        // Utilities
-        success: { DEFAULT: '#10B981', light: '#D1FAE5' },
-        warning: { DEFAULT: '#FBBF24', light: '#FEF3C7' },
-        error: { DEFAULT: '#EF4444', light: '#FEE2E2' },
+        success: { DEFAULT: '#10B981', light: '#ECFDF5' },
+        warning: { DEFAULT: '#F59E0B', light: '#FFFBEB' },
+        error: { DEFAULT: '#EF4444', light: '#FEF2F2' },
         
-        // Map legacy names to new palette to prevent breaking
         zinc: {
-          900: '#0E1A2B', // Deep Navy
-          800: '#1E293B',
-          500: '#4A5564', // Slate Grey
-          400: '#94A3B8',
-          200: '#E3E7EC', // Neutral Grey
-          100: '#F7F8FA', // Soft Grey
+          900: '#111827',
+          800: '#1F2937',
+          500: '#6B7280',
+          400: '#9CA3AF',
+          200: '#E5E7EB',
+          100: '#F3F4F6',
           50: '#F9FAFB',
         }
       },
       fontFamily: {
         sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
-        serif: ['Playfair Display', 'Georgia', 'serif'],
+        serif: ['SF Pro Display', 'Inter', 'sans-serif'], // Swapped to cleaner look, keeping serif class for hierarchy distinctions
       },
       borderRadius: {
         'xl': '12px',
@@ -60,15 +55,15 @@ export default {
         '3xl': '24px',
       },
       boxShadow: {
-        'soft': '0 4px 20px -2px rgba(14, 26, 43, 0.08)',
-        'card': '0 2px 8px rgba(0, 0, 0, 0.04)',
-        'float': '0 12px 30px -10px rgba(0, 0, 0, 0.12)',
-        'glow': '0 0 15px rgba(41, 108, 255, 0.25)',
-        'input': '0 2px 6px rgba(0,0,0,0.02)',
+        'soft': '0 2px 10px rgba(0, 0, 0, 0.03)',
+        'card': '0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.01)',
+        'float': '0 10px 30px -5px rgba(0, 0, 0, 0.08), 0 4px 10px -5px rgba(0, 0, 0, 0.02)',
+        'glow': '0 0 0 4px rgba(36, 107, 253, 0.15)',
+        'input': '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
       },
       animation: {
-        'fade-in': 'fadeIn 0.5s ease-out forwards',
-        'slide-up': 'slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+        'fade-in': 'fadeIn 0.4s ease-out forwards',
+        'slide-up': 'slideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards',
         'scale-in': 'scaleIn 0.2s ease-out forwards',
       },
       keyframes: {
@@ -77,11 +72,11 @@ export default {
           '100%': { opacity: '1' },
         },
         slideUp: {
-          '0%': { transform: 'translateY(15px)', opacity: '0' },
+          '0%': { transform: 'translateY(10px)', opacity: '0' },
           '100%': { transform: 'translateY(0)', opacity: '1' },
         },
         scaleIn: {
-          '0%': { transform: 'scale(0.98)', opacity: '0' },
+          '0%': { transform: 'scale(0.97)', opacity: '0' },
           '100%': { transform: 'scale(1)', opacity: '1' },
         }
       },

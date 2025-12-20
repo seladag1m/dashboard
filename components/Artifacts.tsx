@@ -101,12 +101,7 @@ const FrameworkWidget: React.FC<{ title: string; data: any }> = ({ title, data }
   let gridClass = "grid-cols-1 sm:grid-cols-2";
   if (sections.length >= 5) gridClass = "grid-cols-1 sm:grid-cols-3";
 
-  // Language-agnostic styling based on position for SWOT (Strength, Weakness, Opp, Threat)
   const getSectionStyle = (index: number) => {
-    // 0: Green (Strength/Positive)
-    // 1: Amber (Weakness/Warning)
-    // 2: Blue (Opportunity/External Pos)
-    // 3: Red (Threat/External Neg)
     const styles = [
       { color: "text-emerald-600", border: "border-l-emerald-500" },
       { color: "text-amber-600", border: "border-l-amber-500" },
@@ -126,7 +121,6 @@ const FrameworkWidget: React.FC<{ title: string; data: any }> = ({ title, data }
       </div>
       <div className={`p-6 grid ${gridClass} gap-6`}>
         {sections.map((sec: any, i: number) => {
-          // Use index-based styling if SWOT, otherwise neutral
           const style = isSWOT 
             ? getSectionStyle(i) 
             : { color: "text-zinc-600", border: "border-l-zinc-300" };
@@ -171,16 +165,9 @@ const ChartWidget: React.FC<{ title: string; data: any }> = ({ title, data }) =>
 
   const handleExportData = () => {
     if (!points || points.length === 0) return;
-    
-    // Create CSV content
     const headers = ['Label', 'Value'];
     const rows = points.map((p: any) => [p.label, p.value]);
-    const csvContent = [
-      headers.join(','),
-      ...rows.map((r: any[]) => r.join(','))
-    ].join('\n');
-
-    // Create Blob and download
+    const csvContent = [headers.join(','), ...rows.map((r: any[]) => r.join(','))].join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -214,6 +201,7 @@ const ChartWidget: React.FC<{ title: string; data: any }> = ({ title, data }) =>
                 outerRadius={90}
                 paddingAngle={4}
                 dataKey="value"
+                nameKey="label"
                 cornerRadius={6}
                 stroke="none"
               >
@@ -293,7 +281,7 @@ const ChartWidget: React.FC<{ title: string; data: any }> = ({ title, data }) =>
               <button 
                  key={type}
                  onClick={() => setChartType(type)}
-                 className={`p-2 rounded-lg transition-all ${chartType === type ? 'bg-primary text-white shadow-md' : 'text-zinc-400 hover:text-zinc-600 hover:bg-zinc-50'}`}
+                 className={`p-2 rounded-lg transition-all ${chartType === type ? 'bg-brand-blue text-white shadow-md' : 'text-zinc-400 hover:text-zinc-600 hover:bg-zinc-50'}`}
                  title={`View as ${type}`}
               >
                  {type === 'area' && <AreaIcon size={14} />}

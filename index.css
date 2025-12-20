@@ -1,43 +1,80 @@
 
-/* Standard CSS Overrides - No PostCSS required */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Instrument+Serif:ital,wght@0,400;1,400&display=swap');
 
 html, body, #root {
   height: 100%;
   width: 100%;
-  overflow: hidden;
   margin: 0;
   padding: 0;
 }
 
 body {
-  background-color: #F7F8FA;
-  color: #0E1A2B;
-  font-family: 'Inter', sans-serif;
+  background-color: #F3F5F7;
+  color: #111827;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   -webkit-font-smoothing: antialiased;
-  font-feature-settings: "cv11", "ss01";
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
 }
 
-/* Premium Scrollbar */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+.custom-scrollbar::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
 }
-::-webkit-scrollbar-track {
+.custom-scrollbar::-webkit-scrollbar-track {
   background: transparent;
 }
-::-webkit-scrollbar-thumb {
-  background-color: #D4D4D8;
-  border-radius: 9999px;
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: #E2E8F0;
+  border-radius: 10px;
 }
-::-webkit-scrollbar-thumb:hover {
-  background-color: #A1A1AA;
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: #CBD5E1;
 }
 
-/* Map specific override */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+::selection {
+  background-color: #EFF6FF;
+  color: #1E3A8A;
+}
+
 .leaflet-container {
-  background-color: #F8F9FA;
-  font-family: 'Inter', sans-serif;
-  z-index: 0;
+  background-color: #F9FAFB !important;
+  font-family: 'Inter', sans-serif !important;
+  z-index: 0 !important;
   height: 100%;
   width: 100%;
+}
+
+.animate-reveal {
+  animation: reveal 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes reveal {
+  0% { opacity: 0; transform: translateY(10px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slide-up {
+  0% { transform: translate(-50%, 100%); opacity: 0; }
+  100% { transform: translate(-50%, 0); opacity: 1; }
+}
+
+.animate-slide-up {
+  animation: slide-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.shadow-premium {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.01), 0 2px 4px -1px rgba(0, 0, 0, 0.006), 0 20px 25px -5px rgba(0, 0, 0, 0.03);
+}
+
+.shadow-float {
+  box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.08), 0 4px 10px -5px rgba(0, 0, 0, 0.02);
 }

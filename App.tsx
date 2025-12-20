@@ -5,6 +5,8 @@ import { Dashboard } from './pages/Dashboard';
 import { LandingPage } from './pages/Landing';
 import { AppRoute, User } from './types';
 import { db } from './services/database';
+import { Logo } from './components/UI';
+import { ShieldCheck, Loader2 } from 'lucide-react';
 
 const App: React.FC = () => {
   const [route, setRoute] = useState<AppRoute>(AppRoute.LOGIN);
@@ -13,14 +15,23 @@ const App: React.FC = () => {
 
   // Initialize Session
   useEffect(() => {
-    const session = db.auth.getSession();
-    if (session) {
-      setUser(session);
-      setRoute(AppRoute.CHAT); // We keep the route enum as CHAT but render Dashboard
-    } else {
-      setRoute(AppRoute.LOGIN); 
-    }
-    setIsInitializing(false);
+    const init = async () => {
+      try {
+        const session = db.auth.getSession();
+        if (session) {
+          setUser(session);
+          setRoute(AppRoute.CHAT); // Authenticated -> Dashboard
+        } else {
+          setRoute(AppRoute.LOGIN);
+        }
+      } catch (e) {
+        console.error("Session init error", e);
+      } finally {
+        // Smooth transition out of loading
+        setTimeout(() => setIsInitializing(false), 800);
+      }
+    };
+    init();
   }, []);
 
   const handleLogin = (userData: User) => {
@@ -45,15 +56,27 @@ const App: React.FC = () => {
 
   if (isInitializing) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-zinc-50">
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-blue-600 animate-pulse flex items-center justify-center shadow-lg shadow-blue-500/30">
-             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
-             </svg>
-          </div>
-          <p className="text-zinc-400 text-sm font-medium tracking-wide animate-pulse">Initializing Consult AI...</p>
+      <div className="h-screen w-full flex flex-col items-center justify-center bg-white">
+        <div className="scale-125 mb-12 animate-reveal">
+           <Logo collapsed />
         </div>
+        <div className="flex flex-col items-center gap-6 animate-pulse">
+           <div className="flex items-center gap-3 text-brand-blue">
+              <ShieldCheck size={20} />
+              <span className="text-xs font-bold uppercase tracking-[0.3em]">Restoring Strategic Context</span>
+           </div>
+           <div className="w-64 h-1 bg-slate-50 rounded-full overflow-hidden relative">
+              <div className="absolute inset-0 bg-brand-blue/10"></div>
+              <div className="h-full bg-brand-blue animate-[loading_1.5s_ease-in-out_infinite] w-1/3 rounded-full shadow-lg shadow-blue-500/50"></div>
+           </div>
+           <p className="text-[10px] text-slate-400 font-medium uppercase tracking-widest">Institutional DNA Verification In Progress...</p>
+        </div>
+        <style>{`
+          @keyframes loading {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(300%); }
+          }
+        `}</style>
       </div>
     );
   }
