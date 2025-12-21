@@ -1,5 +1,5 @@
 
-import { User, ChatSession, Project, StrategicReport, MarketingAsset } from '../types';
+import { User, Project, StrategicReport, MarketingAsset } from '../types';
 
 const KEYS = {
   USERS: 'consult_ai_db_users',

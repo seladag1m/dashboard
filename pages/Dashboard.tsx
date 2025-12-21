@@ -7,7 +7,8 @@ import {
   ChevronUp, BrainCircuit, ShieldCheck, Target, AlertTriangle, Zap,
   Briefcase as BriefcaseIcon, FileText, Activity, Clock, Menu, ChevronRight, ChevronLeft, Sparkles
 } from 'lucide-react';
-import { User, Project, Alert } from '../types';
+// Removed missing Alert import to fix TS2305
+import { User, Project } from '../types';
 import { Logo, Button, Card } from '../components/UI';
 import { ChatPanel } from './Chat';
 import { ProjectList, ProjectWorkspace } from '../components/Projects';

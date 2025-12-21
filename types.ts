@@ -35,7 +35,7 @@ export interface CompanyDNA {
     colors: string;
     vibe: string;
   };
-  socialProfiles?: {
+  socialProfiles: {
     linkedin?: string;
     twitter?: string;
     instagram?: string;
@@ -98,18 +98,6 @@ export interface Project {
   lastActive: string;
 }
 
-export interface Alert {
-  id: string;
-  type: 'competitor' | 'market' | 'funding' | 'keyword';
-  category: 'Opportunity' | 'Threat' | 'Market Shift' | 'Alert';
-  severity: 'critical' | 'high' | 'medium' | 'low';
-  title: string;
-  desc: string;
-  strategicMove: string;
-  time: string;
-  read: boolean;
-}
-
 export interface MarketingAsset {
   id: string;
   channel: 'Email' | 'LinkedIn' | 'Twitter' | 'Instagram' | 'Blog' | 'Ad';
@@ -135,14 +123,6 @@ export interface Message {
   attachments?: ProjectFile[];
 }
 
-export interface ChatSession {
-  id: string;
-  title: string;
-  messages: Message[];
-  createdAt: string | Date;
-  updatedAt: string | Date;
-}
-
 export interface StrategicReport {
   id: string;
   title: string;
@@ -165,33 +145,4 @@ export enum AppRoute {
   LOGIN = '/login',
   REGISTER = '/register',
   CHAT = '/chat',
-}
-
-export interface StreamChunk {
-  text: string;
-}
-
-export interface SocialProfileData {
-  name: string;
-  platform: string;
-  followers: string;
-  trend: string;
-  engagement: string;
-}
-
-export interface SocialIntelligence {
-  overallSentiment: { score: number; label: string; change: string };
-  shareOfVoice: { you: number; competitors: number };
-  platforms: { name: string; followers: string; engagementRate: string; trend: string; winningThemes?: string[] }[];
-  userProfiles: SocialProfileData[];
-  competitorProfiles: SocialProfileData[];
-  strategicSignals: {
-    threats: string[];
-    strikeZones: string[];
-    weaknesses: string[];
-    strengths: string[];
-  };
-  contentStrategy: { winningThemes: string[]; gaps: string[]; nextWeekPlan: string };
-  engagementTrend: { m: string; v: number }[];
-  competitorStrategies: any[];
 }
