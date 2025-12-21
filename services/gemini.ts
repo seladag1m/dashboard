@@ -2,21 +2,28 @@
 import { GoogleGenAI, Type, Modality } from "@google/genai";
 import { Message, User, StrategicReport, MarketingAsset, Project } from "../types";
 
+// This flag allows us to gracefully disable tools if the deployment environment rejects them
 let isSearchToolDisabled = false;
 
-// Helper to initialize the client strictly per guidelines
+/**
+ * Strictly adheres to @google/genai initialization guidelines.
+ * Uses process.env.API_KEY exclusively.
+ */
 const getClient = () => {
   const key = process.env.API_KEY;
-  if (!key) throw new Error("Strategic Engine Offline: API_KEY is missing.");
+  if (!key) throw new Error("Strategic Engine Offline: API_KEY environment variable is missing in deployment.");
   return new GoogleGenAI({ apiKey: key });
 };
 
+/**
+ * Cleans and parses JSON from the model, handling grounding citations
+ * and thinking blocks that often occur in production.
+ */
 const parseStrictJSON = (text: string) => {
   if (!text) return null;
-  // Strip grounding citations, thinking blocks, and markdown noise
   const cleanedText = text
-    .replace(/\[\d+\]/g, '') 
-    .replace(/<thinking>[\s\S]*?<\/thinking>/gi, '')
+    .replace(/\[\d+\]/g, '') // Remove grounding citations [1], [2], etc.
+    .replace(/<thinking>[\s\S]*?<\/thinking>/gi, '') // Remove thinking blocks
     .replace(/```json/gi, '')
     .replace(/```/g, '')
     .trim();
@@ -27,8 +34,7 @@ const parseStrictJSON = (text: string) => {
     const jsonMatch = cleanedText.match(/(\{[\s\S]*\}|\[[\s\S]*\])/);
     if (jsonMatch) {
       try {
-        const cleaned = jsonMatch[0].replace(/,\s*([\]}])/g, '$1');
-        return JSON.parse(cleaned);
+        return JSON.parse(jsonMatch[0].replace(/,\s*([\]}])/g, '$1'));
       } catch (innerE) {
         return null;
       }
@@ -37,11 +43,15 @@ const parseStrictJSON = (text: string) => {
   return null;
 };
 
+/**
+ * Hardened wrapper for generateContent.
+ * If a request fails due to tool restrictions (common in prod), it retries with internal reasoning.
+ */
 async function generateWithHardenedFallback(params: any) {
   const ai = getClient();
-  const hasTools = !!(params.config?.tools && params.config.tools.length > 0);
+  const hasSearch = params.config?.tools?.some((t: any) => t.googleSearch);
   
-  if (isSearchToolDisabled && hasTools) {
+  if (isSearchToolDisabled && hasSearch) {
     params.config = { ...params.config };
     params.config.tools = params.config.tools.filter((t: any) => !t.googleSearch);
     if (params.config.tools.length === 0) delete params.config.tools;
@@ -53,10 +63,10 @@ async function generateWithHardenedFallback(params: any) {
   } catch (error: any) {
     const errStr = (error?.message || JSON.stringify(error)).toLowerCase();
     
-    // Specifically handle environment or tool-specific failures by falling back to core reasoning
-    if (errStr.includes("xhr error") || errStr.includes("500") || errStr.includes("not found") || errStr.includes("429")) {
-      console.warn("Strategic Engine: External grounding failure. Deploying internal reasoning protocols.");
-      if (hasTools) isSearchToolDisabled = true;
+    // Check for region/quota/environment specific tool failures
+    if (errStr.includes("not found") || errStr.includes("500") || errStr.includes("429") || errStr.includes("xhr")) {
+      console.warn("Deployment Alert: Grounding tool failed. Switching to internal reasoning protocol.");
+      if (hasSearch) isSearchToolDisabled = true;
 
       const fallbackParams = { ...params };
       if (fallbackParams.config?.tools) {
@@ -72,13 +82,12 @@ async function generateWithHardenedFallback(params: any) {
 }
 
 const buildExecutiveContext = (user: User, project?: Project) => {
-  const dna = user.dna;
   return `
-    ROLE: Chief Strategic Advisor & AI Intel Engine for ${user.companyName}.
-    SECTOR: ${user.industry}. DNA: ${dna.businessModel}, Scope: ${dna.marketScope}.
-    MISSION: Provide high-fidelity, premium strategic intelligence.
-    BRAND TONE: Executive, precise, data-driven, and elite.
-    PROJECT: ${project ? `Current Mandate: ${project.name}. Goal: ${project.goal}` : 'General Oversight'}.
+    ROLE: Chief Strategic Advisor for ${user.companyName} (${user.industry}).
+    DNA: ${user.dna.businessModel} model, Market Scope: ${user.dna.marketScope}.
+    MISSION: Provide executive-level data-driven intelligence.
+    TONE: Premium, precise, and authoritative.
+    PROJECT: ${project ? `Mandate: ${project.name}. Goal: ${project.goal}` : 'General Oversight'}.
   `;
 };
 
@@ -104,13 +113,7 @@ export const fetchRealTimeIntelligence = async (user: User, type: string) => {
           },
           momentum: { 
             type: Type.ARRAY, 
-            items: { 
-              type: Type.OBJECT, 
-              properties: { 
-                m: { type: Type.STRING }, 
-                v: { type: Type.NUMBER } 
-              } 
-            } 
+            items: { type: Type.OBJECT, properties: { m: { type: Type.STRING }, v: { type: Type.NUMBER } } } 
           },
           alerts: { 
             type: Type.ARRAY, 
@@ -119,7 +122,6 @@ export const fetchRealTimeIntelligence = async (user: User, type: string) => {
               properties: { 
                 category: { type: Type.STRING }, 
                 title: { type: Type.STRING }, 
-                time: { type: Type.STRING }, 
                 desc: { type: Type.STRING }, 
                 strategicMove: { type: Type.STRING } 
               } 
@@ -147,9 +149,7 @@ export const fetchRealTimeIntelligence = async (user: User, type: string) => {
                   type: Type.OBJECT, 
                   properties: { 
                     strengths: { type: Type.ARRAY, items: { type: Type.STRING } }, 
-                    weaknesses: { type: Type.ARRAY, items: { type: Type.STRING } }, 
-                    opportunities: { type: Type.ARRAY, items: { type: Type.STRING } }, 
-                    threats: { type: Type.ARRAY, items: { type: Type.STRING } } 
+                    weaknesses: { type: Type.ARRAY, items: { type: Type.STRING } }
                   } 
                 }
               }
@@ -158,84 +158,8 @@ export const fetchRealTimeIntelligence = async (user: User, type: string) => {
         }
       };
       break;
-    case 'market':
-      prompt = `${context}\nGenerate Porter's 5 Forces scores (0-100) and identify geo-demand intensity zones. Return JSON.`;
-      responseSchema = {
-        type: Type.OBJECT,
-        properties: {
-          porters: { 
-            type: Type.ARRAY, 
-            items: { 
-              type: Type.OBJECT, 
-              properties: { 
-                factor: { type: Type.STRING }, 
-                score: { type: Type.NUMBER }, 
-                insight: { type: Type.STRING } 
-              } 
-            } 
-          },
-          geoDemand: { 
-            type: Type.ARRAY, 
-            items: { 
-              type: Type.OBJECT, 
-              properties: { 
-                lat: { type: Type.NUMBER }, 
-                lng: { type: Type.NUMBER }, 
-                intensity: { type: Type.NUMBER }, 
-                title: { type: Type.STRING } 
-              } 
-            } 
-          },
-          matrix: { 
-            type: Type.ARRAY, 
-            items: { 
-              type: Type.OBJECT, 
-              properties: { 
-                name: { type: Type.STRING }, 
-                x: { type: Type.NUMBER }, 
-                y: { type: Type.NUMBER }, 
-                z: { type: Type.NUMBER }, 
-                sentiment: { type: Type.NUMBER } 
-              } 
-            } 
-          }
-        }
-      };
-      break;
-    case 'social':
-      prompt = `${context}\nPerform Social Intelligence Audit comparing ${user.companyName} vs Rivals. Identify Strike Zones and Risk Vectors. Return JSON.`;
-      responseSchema = {
-        type: Type.OBJECT,
-        properties: {
-          sentiment: { 
-            type: Type.OBJECT, 
-            properties: { 
-              score: { type: Type.NUMBER }, 
-              label: { type: Type.STRING } 
-            } 
-          },
-          trends: { 
-            type: Type.ARRAY, 
-            items: { 
-              type: Type.OBJECT, 
-              properties: { 
-                m: { type: Type.STRING }, 
-                v: { type: Type.NUMBER } 
-              } 
-            } 
-          },
-          signals: {
-            type: Type.OBJECT,
-            properties: {
-              threats: { type: Type.ARRAY, items: { type: Type.STRING } },
-              strikeZones: { type: Type.ARRAY, items: { type: Type.STRING } },
-              opportunities: { type: Type.ARRAY, items: { type: Type.STRING } },
-              weaknesses: { type: Type.ARRAY, items: { type: Type.STRING } }
-            }
-          }
-        }
-      };
-      break;
+    default:
+      prompt = `${context}\nGenerate market data for ${type}. Return JSON.`;
   }
 
   const res = await generateWithHardenedFallback({
@@ -248,104 +172,6 @@ export const fetchRealTimeIntelligence = async (user: User, type: string) => {
     }
   });
   return parseStrictJSON(res.text) || {};
-};
-
-export const generateMarketingCampaign = async (user: User, userPrompt: string): Promise<MarketingAsset[]> => {
-  const isVisual = /image|picture|photo|banner|graphic|visual/i.test(userPrompt);
-
-  if (isVisual) {
-    const res = await generateWithHardenedFallback({
-      model: 'gemini-2.5-flash-image',
-      contents: `Generate a high-end commercial visual for ${user.companyName} (${user.industry}). Request: ${userPrompt}. Tone: ${user.dna.brandIdentity.tone}. Premium consulting aesthetic.`,
-      config: { imageConfig: { aspectRatio: "16:9" } }
-    });
-
-    let base64 = '';
-    for (const part of res.candidates[0].content.parts) {
-      if (part.inlineData) base64 = `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
-    }
-
-    return [{
-      id: `img-${Date.now()}`,
-      channel: 'Ad',
-      title: 'Strategic Visual Prototype',
-      content: 'Synthesized via Vision Protocol for board review.',
-      isImage: true,
-      imageData: base64,
-      tags: ['Visual', 'Deployment', 'Premium'],
-      status: 'Ready',
-      timestamp: new Date().toISOString()
-    }];
-  }
-
-  const res = await generateWithHardenedFallback({
-    model: 'gemini-3-flash-preview',
-    contents: `${buildExecutiveContext(user)}\nDraft marketing assets for: "${userPrompt}". Return JSON array.`,
-    config: { responseMimeType: "application/json" }
-  });
-  const assets = parseStrictJSON(res.text) || [];
-  return assets.map((a: any) => ({
-    ...a,
-    id: `ma-${Date.now()}-${Math.random()}`,
-    status: 'Ready',
-    timestamp: new Date().toISOString()
-  }));
-};
-
-export const analyzeBusinessWebsite = async (url: string) => {
-  const prompt = `Conduct a real-time crawl of ${url} using Google Search. Extract institutional data.
-  Respond ONLY with a JSON object in this format:
-  {
-    "companyName": "String",
-    "industry": "One of: Technology, Financial Services, Healthcare, Retail, Manufacturing, Consulting, Logistics",
-    "businessModel": "One of: SaaS, Services, Ecommerce, Marketplace, Hybrid",
-    "summary": "One sentence summary",
-    "competitiveIntensity": "Low, Medium, or High",
-    "socials": {
-      "linkedin": "Full LinkedIn company URL",
-      "twitter": "Full Twitter/X URL",
-      "instagram": "Full Instagram URL"
-    }
-  }`;
-
-  try {
-    const res = await generateWithHardenedFallback({
-      model: 'gemini-3-flash-preview',
-      contents: prompt,
-      config: { 
-        responseMimeType: "application/json",
-        tools: isSearchToolDisabled ? [] : [{ googleSearch: {} }]
-      }
-    });
-    const parsed = parseStrictJSON(res.text);
-    if (!parsed || !parsed.companyName) throw new Error("Incomplete extraction");
-    return parsed;
-  } catch (e) {
-    console.error("Website Analysis failed", e);
-    return null;
-  }
-};
-
-export const generateStrategicReport = async (user: User): Promise<StrategicReport> => {
-  const res = await generateWithHardenedFallback({
-    model: 'gemini-3-pro-preview',
-    contents: `Board Manifesto for ${user.companyName}. Sector: ${user.industry}. Return JSON {title, summary, content}.`,
-    config: { 
-      responseMimeType: "application/json", 
-      thinkingConfig: { thinkingBudget: 16000 } 
-    }
-  });
-  const raw = parseStrictJSON(res.text) || {};
-  return {
-    id: `rep-${Date.now()}`,
-    title: raw.title || "Strategic Briefing",
-    date: new Date().toLocaleDateString(),
-    type: 'Opportunity',
-    impactLevel: 'High',
-    summary: raw.summary || "Synthesizing mandate...",
-    content: raw.content || "Report content not generated.",
-    companiesInvolved: []
-  };
 };
 
 export const generateChatResponse = async function* (history: Message[], currentMessage: string, user: User, project?: Project) {
@@ -363,5 +189,86 @@ export const generateChatResponse = async function* (history: Message[], current
   
   for await (const chunk of stream) {
     yield { text: chunk.text };
+  }
+};
+
+export const generateStrategicReport = async (user: User): Promise<StrategicReport> => {
+  const res = await generateWithHardenedFallback({
+    model: 'gemini-3-pro-preview',
+    contents: `Draft a Board Manifesto for ${user.companyName}. Return JSON {title, summary, content}.`,
+    config: { 
+      responseMimeType: "application/json", 
+      thinkingConfig: { thinkingBudget: 16000 } 
+    }
+  });
+  const raw = parseStrictJSON(res.text) || {};
+  return {
+    id: `rep-${Date.now()}`,
+    title: raw.title || "Strategic Briefing",
+    date: new Date().toLocaleDateString(),
+    type: 'Opportunity',
+    impactLevel: 'High',
+    summary: raw.summary || "Synthesizing mandate...",
+    content: raw.content || "Full report content unavailable.",
+    companiesInvolved: []
+  };
+};
+
+export const generateMarketingCampaign = async (user: User, userPrompt: string): Promise<MarketingAsset[]> => {
+  const isVisual = /image|picture|photo|banner/i.test(userPrompt);
+
+  if (isVisual) {
+    const res = await generateWithHardenedFallback({
+      model: 'gemini-2.5-flash-image',
+      contents: `High-end commercial visual for ${user.companyName}. Concept: ${userPrompt}.`,
+      config: { imageConfig: { aspectRatio: "16:9" } }
+    });
+
+    let base64 = '';
+    for (const part of res.candidates[0].content.parts) {
+      if (part.inlineData) base64 = `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+    }
+
+    return [{
+      id: `img-${Date.now()}`,
+      channel: 'Ad',
+      title: 'Visual Prototype',
+      content: 'Vision Protocol synthesized asset.',
+      isImage: true,
+      imageData: base64,
+      tags: ['Visual', 'Strategic'],
+      status: 'Ready',
+      timestamp: new Date().toISOString()
+    }];
+  }
+
+  const res = await generateWithHardenedFallback({
+    model: 'gemini-3-flash-preview',
+    contents: `${buildExecutiveContext(user)}\nDraft assets for: "${userPrompt}". Return JSON array.`,
+    config: { responseMimeType: "application/json" }
+  });
+  const assets = parseStrictJSON(res.text) || [];
+  return assets.map((a: any) => ({
+    ...a,
+    id: `ma-${Date.now()}-${Math.random()}`,
+    status: 'Ready',
+    timestamp: new Date().toISOString()
+  }));
+};
+
+export const analyzeBusinessWebsite = async (url: string) => {
+  const prompt = `Conduct institutional audit of ${url}. Respond ONLY with JSON: {companyName, industry, businessModel, summary, competitiveIntensity}.`;
+  try {
+    const res = await generateWithHardenedFallback({
+      model: 'gemini-3-flash-preview',
+      contents: prompt,
+      config: { 
+        responseMimeType: "application/json",
+        tools: isSearchToolDisabled ? [] : [{ googleSearch: {} }]
+      }
+    });
+    return parseStrictJSON(res.text);
+  } catch (e) {
+    return null;
   }
 };
