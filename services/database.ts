@@ -1,137 +1,127 @@
 
-import { User, ChatSession, Project } from '../types';
+import { User, ChatSession, Project, StrategicReport, MarketingAsset } from '../types';
 
 const KEYS = {
   USERS: 'consult_ai_db_users',
-  CHATS: 'consult_ai_db_chats',
   SESSION: 'consult_ai_db_session',
   PROJECTS: 'consult_ai_db_projects',
+  CHATS: 'consult_ai_db_chats',
+  REPORTS: 'consult_ai_db_reports',
+  MARKETING: 'consult_ai_db_marketing'
 };
-
-interface StoredUser {
-  user: User;
-  passwordHash: string; 
-}
-
-interface UserDatabase {
-  [email: string]: StoredUser;
-}
-
-interface ChatDatabase {
-  [userId: string]: ChatSession[];
-}
-
-interface ProjectDatabase {
-  [userId: string]: Project[];
-}
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 const safeParse = <T>(key: string, defaultVal: T): T => {
   try {
     const item = localStorage.getItem(key);
-    return item ? JSON.parse(item) : defaultVal;
+    if (!item) return defaultVal;
+    return JSON.parse(item);
   } catch (e) {
+    console.error(`DB Error (${key}):`, e);
     return defaultVal;
+  }
+};
+
+const safeSave = (key: string, data: any) => {
+  try {
+    localStorage.setItem(key, JSON.stringify(data));
+  } catch (e) {
+    console.error(`DB Save Error (${key}):`, e);
   }
 };
 
 export const db = {
   auth: {
     async register(user: User, password: string): Promise<User> {
-      await delay(500);
-      const users: UserDatabase = safeParse(KEYS.USERS, {});
-      if (users[user.email]) throw new Error("Email registered.");
+      await delay(1000);
+      const users = safeParse<Record<string, { user: User; passwordHash: string }>>(KEYS.USERS, {});
+      if (users[user.email]) throw new Error("Entity already registered.");
       users[user.email] = { user, passwordHash: btoa(password) };
-      localStorage.setItem(KEYS.USERS, JSON.stringify(users));
+      safeSave(KEYS.USERS, users);
       this.setSession(user);
       return user;
     },
-
     async login(email: string, password: string): Promise<User> {
-      await delay(500);
-      const users: UserDatabase = safeParse(KEYS.USERS, {});
-      const stored = users[email];
-      if (!stored || stored.passwordHash !== btoa(password)) throw new Error("Invalid credentials.");
-      this.setSession(stored.user);
-      return stored.user;
+      await delay(1000);
+      const users = safeParse<Record<string, { user: User; passwordHash: string }>>(KEYS.USERS, {});
+      const entry = users[email];
+      if (!entry || entry.passwordHash !== btoa(password)) throw new Error("Invalid credentials.");
+      this.setSession(entry.user);
+      return entry.user;
     },
-
+    async logout() { 
+      localStorage.removeItem(KEYS.SESSION); 
+    },
+    getSession(): User | null { 
+      return safeParse<User | null>(KEYS.SESSION, null); 
+    },
+    setSession(user: User) { 
+      safeSave(KEYS.SESSION, user); 
+    },
     async updateProfile(user: User): Promise<User> {
-      await delay(300);
-      const users: UserDatabase = safeParse(KEYS.USERS, {});
-      if (!users[user.email]) throw new Error("User not found");
-      users[user.email] = { ...users[user.email], user: user };
-      localStorage.setItem(KEYS.USERS, JSON.stringify(users));
-      this.setSession(user);
+      const users = safeParse<Record<string, { user: User; passwordHash: string }>>(KEYS.USERS, {});
+      if (users[user.email]) {
+        users[user.email].user = user;
+        safeSave(KEYS.USERS, users);
+        this.setSession(user);
+      }
       return user;
-    },
-
-    async logout(): Promise<void> {
-      localStorage.removeItem(KEYS.SESSION);
-    },
-
-    getSession(): User | null {
-      return safeParse(KEYS.SESSION, null);
-    },
-
-    setSession(user: User) {
-      localStorage.setItem(KEYS.SESSION, JSON.stringify(user));
     }
   },
-
-  chats: {
-    async list(userId: string): Promise<ChatSession[]> {
-      const allChats: ChatDatabase = safeParse(KEYS.CHATS, {});
-      return allChats[userId] || [];
-    },
-
-    async save(userId: string, session: ChatSession): Promise<void> {
-      const allChats: ChatDatabase = safeParse(KEYS.CHATS, {});
-      let userChats = allChats[userId] || [];
-      userChats = userChats.filter(s => s.id !== session.id);
-      userChats.unshift(session);
-      allChats[userId] = userChats;
-      localStorage.setItem(KEYS.CHATS, JSON.stringify(allChats));
-    },
-
-    async delete(userId: string, sessionId: string): Promise<void> {
-      const allChats: ChatDatabase = safeParse(KEYS.CHATS, {});
-      if (!allChats[userId]) return;
-      allChats[userId] = allChats[userId].filter(s => s.id !== sessionId);
-      localStorage.setItem(KEYS.CHATS, JSON.stringify(allChats));
-    }
-  },
-
   projects: {
     async list(userId: string): Promise<Project[]> {
-      const allProjects: ProjectDatabase = safeParse(KEYS.PROJECTS, {});
-      return allProjects[userId] || [];
+      const all = safeParse<Record<string, Project[]>>(KEYS.PROJECTS, {});
+      return all[userId] || [];
     },
-
     async create(userId: string, project: Project): Promise<Project> {
-      const allProjects: ProjectDatabase = safeParse(KEYS.PROJECTS, {});
-      const userProjects = allProjects[userId] || [];
+      const all = safeParse<Record<string, Project[]>>(KEYS.PROJECTS, {});
+      const userProjects = all[userId] || [];
       userProjects.unshift(project);
-      allProjects[userId] = userProjects;
-      localStorage.setItem(KEYS.PROJECTS, JSON.stringify(allProjects));
+      all[userId] = userProjects;
+      safeSave(KEYS.PROJECTS, all);
       return project;
     },
-
     async update(userId: string, project: Project): Promise<Project> {
-       const allProjects: ProjectDatabase = safeParse(KEYS.PROJECTS, {});
-       let userProjects = allProjects[userId] || [];
-       userProjects = userProjects.map(p => p.id === project.id ? project : p);
-       allProjects[userId] = userProjects;
-       localStorage.setItem(KEYS.PROJECTS, JSON.stringify(allProjects));
-       return project;
+      const all = safeParse<Record<string, Project[]>>(KEYS.PROJECTS, {});
+      if (all[userId]) {
+        all[userId] = all[userId].map(p => p.id === project.id ? project : p);
+        safeSave(KEYS.PROJECTS, all);
+      }
+      return project;
     },
-
-    async delete(userId: string, projectId: string): Promise<void> {
-      const allProjects: ProjectDatabase = safeParse(KEYS.PROJECTS, {});
-      if (!allProjects[userId]) return;
-      allProjects[userId] = allProjects[userId].filter(p => p.id !== projectId);
-      localStorage.setItem(KEYS.PROJECTS, JSON.stringify(allProjects));
+    async delete(userId: string, projectId: string) {
+      const all = safeParse<Record<string, Project[]>>(KEYS.PROJECTS, {});
+      if (all[userId]) {
+        all[userId] = all[userId].filter(p => p.id !== projectId);
+        safeSave(KEYS.PROJECTS, all);
+      }
+    }
+  },
+  artifacts: {
+    async saveReport(userId: string, report: StrategicReport) {
+      const all = safeParse<Record<string, StrategicReport[]>>(KEYS.REPORTS, {});
+      const userReports = all[userId] || [];
+      userReports.unshift(report);
+      all[userId] = userReports;
+      safeSave(KEYS.REPORTS, all);
+    },
+    async listReports(userId: string): Promise<StrategicReport[]> {
+      const all = safeParse<Record<string, StrategicReport[]>>(KEYS.REPORTS, {});
+      return all[userId] || [];
+    },
+    async saveMarketingAssets(userId: string, assets: MarketingAsset[]) {
+      const all = safeParse<Record<string, MarketingAsset[]>>(KEYS.MARKETING, {});
+      const userAssets = all[userId] || [];
+      // Combine and prevent duplicates if IDs match
+      const combined = [...assets, ...userAssets];
+      const unique = Array.from(new Map(combined.map(item => [item.id, item])).values());
+      all[userId] = unique;
+      safeSave(KEYS.MARKETING, all);
+    },
+    async listMarketingAssets(userId: string): Promise<MarketingAsset[]> {
+      const all = safeParse<Record<string, MarketingAsset[]>>(KEYS.MARKETING, {});
+      return all[userId] || [];
     }
   }
 };

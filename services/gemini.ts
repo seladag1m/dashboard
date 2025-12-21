@@ -2,39 +2,35 @@
 import { GoogleGenAI, Type, Modality } from "@google/genai";
 import { Message, User, StrategicReport, MarketingAsset, Project } from "../types";
 
-// Session-level flag to avoid repeated errors from Search Grounding or transient RPC failures
 let isSearchToolDisabled = false;
 
 const getClient = () => {
   const key = process.env.API_KEY; 
-  if (!key) throw new Error("API_KEY is missing");
+  if (!key) throw new Error("API_KEY is missing. Ensure it is set in the environment.");
   return new GoogleGenAI({ apiKey: key });
 };
 
-const parseJSON = (text: string) => {
+const parseStrictJSON = (text: string) => {
   if (!text) return null;
+  // Strip potential "thinking" or markdown noise
+  const cleanedText = text.replace(/<thinking>[\s\S]*?<\/thinking>/gi, '').replace(/```json/gi, '').replace(/```/g, '').trim();
   try {
-    return JSON.parse(text);
+    return JSON.parse(cleanedText);
   } catch (err) {
-    const jsonMatch = text.match(/(\{[\s\S]*\}|\[[\s\S]*\])/);
+    const jsonMatch = cleanedText.match(/(\{[\s\S]*\}|\[[\s\S]*\])/);
     if (jsonMatch) {
       try {
         const cleaned = jsonMatch[0].replace(/,\s*([\]}])/g, '$1');
         return JSON.parse(cleaned);
       } catch (innerE) {
-        console.error("JSON extraction parse failed:", innerE);
+        console.error("JSON recovery failed:", innerE);
       }
     }
   }
   return null;
 };
 
-/**
- * Robust wrapper to handle Google Search quota exhaustion (Error 429) 
- * and transient RPC/500 failures.
- * Detects failures and disables the search tool for the session to maintain stability.
- */
-async function generateWithFallback(ai: any, params: any) {
+async function generateWithHardenedFallback(ai: any, params: any) {
   const hasTools = !!(params.config?.tools && params.config.tools.length > 0);
   
   if (isSearchToolDisabled && hasTools) {
@@ -44,32 +40,17 @@ async function generateWithFallback(ai: any, params: any) {
   }
 
   try {
-    return await ai.models.generateContent(params);
+    const response = await ai.models.generateContent(params);
+    if (!response.text) throw new Error("Empty response from Strategic Engine.");
+    return response;
   } catch (error: any) {
-    const errStr = JSON.stringify(error);
-    
-    const isQuotaError = 
-      error?.code === 429 || 
-      error?.status === 'RESOURCE_EXHAUSTED' || 
-      error?.error?.code === 429 ||
-      error?.error?.status === 'RESOURCE_EXHAUSTED' ||
-      errStr.includes("429") || 
-      errStr.includes("RESOURCE_EXHAUSTED") ||
-      error?.message?.includes("429") ||
-      error?.message?.includes("quota");
+    const errStr = JSON.stringify(error).toLowerCase();
+    const isQuota = errStr.includes("429") || errStr.includes("quota");
+    const isRpc = errStr.includes("500") || errStr.includes("rpc") || errStr.includes("xhr") || errStr.includes("unknown");
 
-    const isRpcError = 
-      error?.code === 500 || 
-      error?.status === 'INTERNAL' ||
-      errStr.includes("Rpc failed") || 
-      errStr.includes("xhr error") ||
-      error?.message?.includes("Rpc failed") ||
-      error?.message?.includes("500");
-    
-    if ((isQuotaError || isRpcError) && hasTools) {
-      console.warn("Intelligence Tool Failure. Falling back to internal neural knowledge.");
+    if ((isQuota || isRpc) && hasTools) {
+      console.warn("Infrastructure failure. Retrying with baseline reasoning...");
       isSearchToolDisabled = true;
-      
       const fallbackParams = { ...params };
       if (fallbackParams.config) {
         fallbackParams.config = { ...fallbackParams.config };
@@ -86,45 +67,31 @@ async function generateWithFallback(ai: any, params: any) {
 
 const getSystemInstruction = (user: User, project?: Project) => {
   const dna = user.dna;
-  const priorities = dna.strategicPriorities.join(', ');
-  
-  const depthInstruction = dna.confidenceLevel === 'Low' 
-    ? "Provide EXTREME detail and foundational logic. Explain every strategic choice from first principles."
-    : dna.confidenceLevel === 'Medium'
-    ? "Provide balanced strategic synthesis. Offer high-level direction with supporting tactical detail."
-    : "Provide elite, ultra-concise executive synthesis. Focus on high-stakes leverage points and immediate strike zones. Challenge existing assumptions with contrarian logic.";
-
-  return `You are CONSULT AI, an elite strategic advisor for ${user.companyName}.
-  
-  STRICT CONTEXT (BUSINESS DNA):
-  - Company: ${user.companyName}
+  return `You are CONSULT AI, an elite institutional advisor for ${user.companyName}.
+  STRATEGIC DNA:
   - Sector: ${user.industry} / ${dna.subIndustry || 'General'}
-  - Business Model: ${dna.businessModel} (${dna.targetCustomer})
-  - Market Footprint: ${dna.marketScope} (${dna.growthRegions.join(', ')})
-  - Core Mandates: ${priorities}
-  - Primary Objective: ${dna.primaryGoal}
-  - Competitive Intensity: ${dna.competitiveIntensity}
-  - Exec Confidence Level: ${dna.confidenceLevel}
+  - Model: ${dna.businessModel} (${dna.targetCustomer})
+  - Market: ${dna.marketScope}
+  - Core Mandates: ${dna.strategicPriorities.join(', ')}
+  - Primary Goal: ${dna.primaryGoal}
   
-  ADVISORY PROTOCOLS:
-  1. DNA ALIGNMENT: Every insight must be filtered through the client's DNA.
-  2. DEPTH CALIBRATION: ${depthInstruction}
-  3. GROUNDING: Use Search if available. Otherwise, use high-fidelity sector proxies and neural knowledge.
-  4. TONALITY: Precise, executive, and forward-looking.
-  
-  ARTIFACT PROTOCOL:
-  Use exactly "ARTIFACT:" followed by JSON for charts/frameworks.`;
+  ${project ? `CURRENT MANDATE (PROJECT):
+  - Name: ${project.name}
+  - Goal: ${project.goal}
+  - Description: ${project.description}` : 'GENERAL ADVISORY MODE'}
+
+  ADVISORY PROTOCOL: Be precise, contrarian where necessary, and executive-level. Use Markdown for reports.
+  ARTIFACT PROTOCOL: Use "ARTIFACT:" followed by a valid JSON object for charts/frameworks.`;
 };
 
 export const fetchRealTimeIntelligence = async (user: User, type: string, options?: any) => {
   const ai = getClient();
-  const dna = user.dna;
   let prompt = '';
   let responseSchema: any = null;
 
   switch (type) {
     case 'overview':
-      prompt = `Analyze ${user.companyName} in the ${user.industry} sector. Provide realityBar, momentum, context and alerts.`;
+      prompt = `Strategic overview for ${user.companyName} in ${user.industry}. Return scores and active pulse metrics.`;
       responseSchema = {
         type: Type.OBJECT,
         properties: {
@@ -136,9 +103,8 @@ export const fetchRealTimeIntelligence = async (user: User, type: string, option
         required: ['realityBar', 'momentum', 'context', 'alerts']
       };
       break;
-
     case 'competitors':
-      prompt = `Identify top 3-5 competitors for ${user.companyName}. Provide HQ lat/lng and SWOT/radar data.`;
+      prompt = `Identify 3 competitors for ${user.companyName}. Provide HQ city, lat/lng, and SWOT.`;
       responseSchema = {
         type: Type.OBJECT,
         properties: {
@@ -158,251 +124,108 @@ export const fetchRealTimeIntelligence = async (user: User, type: string, option
         required: ['competitors']
       };
       break;
-
-    case 'market':
-      prompt = `Audit ${user.industry} market. Include Porter's Five Forces and matrix data.`;
-      responseSchema = {
-        type: Type.OBJECT,
-        properties: {
-          bubbleData: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { name: { type: Type.STRING }, x: { type: Type.NUMBER }, y: { type: Type.NUMBER }, z: { type: Type.NUMBER }, sentiment: { type: Type.NUMBER } }, required: ['name', 'x', 'y', 'z', 'sentiment'] } },
-          signals: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { title: { type: Type.STRING }, desc: { type: Type.STRING } }, required: ['title', 'desc'] } },
-          fiveForces: { type: Type.OBJECT, properties: { threatOfNewEntrants: { type: Type.STRING }, bargainingPowerOfBuyers: { type: Type.STRING }, bargainingPowerOfSuppliers: { type: Type.STRING }, threatOfSubstituteProducts: { type: Type.STRING }, intensityOfCompetitiveRivalry: { type: Type.STRING } }, required: ['threatOfNewEntrants', 'bargainingPowerOfBuyers', 'bargainingPowerOfSuppliers', 'threatOfSubstituteProducts', 'intensityOfCompetitiveRivalry'] }
-        },
-        required: ['bubbleData', 'signals', 'fiveForces']
-      };
-      break;
-
-    case 'alerts':
-      prompt = `Scan for signals for ${user.companyName}.`;
-      responseSchema = {
-        type: Type.OBJECT,
-        properties: {
-          alerts: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { category: { type: Type.STRING }, severity: { type: Type.STRING }, title: { type: Type.STRING }, desc: { type: Type.STRING }, strategicMove: { type: Type.STRING }, time: { type: Type.STRING } }, required: ['category', 'severity', 'title', 'desc', 'strategicMove', 'time'] } }
-        },
-        required: ['alerts']
-      };
-      break;
-
-    case 'social':
-      prompt = `Perform a high-fidelity social intelligence audit for ${user.companyName}. Analyze our key institutional profiles and identify engagement movements. List primary competitor social footprints and derive strategic signals (Threats, Strike Zones, Weaknesses, Strengths).`;
-      responseSchema = {
-        type: Type.OBJECT,
-        properties: {
-          overallSentiment: { type: Type.OBJECT, properties: { score: { type: Type.NUMBER }, label: { type: Type.STRING }, change: { type: Type.STRING } }, required: ['score', 'label', 'change'] },
-          shareOfVoice: { type: Type.OBJECT, properties: { you: { type: Type.NUMBER }, competitors: { type: Type.NUMBER } }, required: ['you', 'competitors'] },
-          userProfiles: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { name: { type: Type.STRING }, platform: { type: Type.STRING }, followers: { type: Type.STRING }, trend: { type: Type.STRING }, engagement: { type: Type.STRING } }, required: ['name', 'platform', 'followers', 'trend', 'engagement'] } },
-          competitorProfiles: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { name: { type: Type.STRING }, platform: { type: Type.STRING }, followers: { type: Type.STRING }, trend: { type: Type.STRING }, engagement: { type: Type.STRING } }, required: ['name', 'platform', 'followers', 'trend', 'engagement'] } },
-          strategicSignals: { type: Type.OBJECT, properties: { threats: { type: Type.ARRAY, items: { type: Type.STRING } }, strikeZones: { type: Type.ARRAY, items: { type: Type.STRING } }, weaknesses: { type: Type.ARRAY, items: { type: Type.STRING } }, strengths: { type: Type.ARRAY, items: { type: Type.STRING } } }, required: ['threats', 'strikeZones', 'weaknesses', 'strengths'] },
-          platforms: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { name: { type: Type.STRING }, followers: { type: Type.STRING }, engagementRate: { type: Type.STRING }, trend: { type: Type.STRING }, winningThemes: { type: Type.ARRAY, items: { type: Type.STRING } } }, required: ['name', 'followers', 'engagementRate', 'trend', 'winningThemes'] } },
-          engagementTrend: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { m: { type: Type.STRING }, v: { type: Type.NUMBER } }, required: ['m', 'v'] } },
-          contentStrategy: { type: Type.OBJECT, properties: { winningThemes: { type: Type.ARRAY, items: { type: Type.STRING } }, gaps: { type: Type.ARRAY, items: { type: Type.STRING } }, nextWeekPlan: { type: Type.STRING } }, required: ['winningThemes', 'gaps', 'nextWeekPlan'] }
-        },
-        required: ['overallSentiment', 'shareOfVoice', 'platforms', 'userProfiles', 'competitorProfiles', 'strategicSignals', 'engagementTrend', 'contentStrategy']
-      };
-      break;
-
     default:
       prompt = `Analyze ${user.companyName}.`;
   }
 
-  const config: any = { responseMimeType: "application/json", responseSchema: responseSchema };
-  if (!isSearchToolDisabled) {
-    config.tools = [{ googleSearch: {} }];
-  }
+  const config: any = { responseMimeType: "application/json", responseSchema };
+  if (!isSearchToolDisabled) config.tools = [{ googleSearch: {} }];
 
-  const response = await generateWithFallback(ai, {
+  const res = await generateWithHardenedFallback(ai, {
     model: 'gemini-3-flash-preview',
-    contents: `CONTEXT: ${JSON.stringify(dna)}\nTASK: ${prompt}`,
+    contents: prompt,
     config
   });
-  
-  const data = parseJSON(response.text || "{}") || {};
-  if (type === 'competitors') data.competitors = data.competitors || [];
-  if (type === 'market') { data.bubbleData = data.bubbleData || []; data.signals = data.signals || []; }
-  if (type === 'alerts') data.alerts = data.alerts || [];
-  if (type === 'social') {
-    data.platforms = data.platforms || [];
-    data.engagementTrend = data.engagementTrend || [];
-    data.userProfiles = data.userProfiles || [];
-    data.competitorProfiles = data.competitorProfiles || [];
-    data.strategicSignals = data.strategicSignals || { threats: [], strikeZones: [], weaknesses: [], strengths: [] };
-  }
-  return data;
-};
-
-export const searchBusinessDatabase = async (query: string) => {
-  const ai = getClient();
-  const config: any = { responseMimeType: "application/json" };
-  if (!isSearchToolDisabled) config.tools = [{ googleSearch: {} }];
-
-  try {
-    const response = await generateWithFallback(ai, {
-      model: 'gemini-3-flash-preview',
-      contents: `Search for official business data for "${query}". Return strictly JSON: { "results": [{ "name": "...", "url": "...", "industry": "...", "location": "..." }] }`,
-      config
-    });
-    return parseJSON(response.text || "{}") || { results: [] };
-  } catch (e) {
-    console.warn("Search tool failure, returning empty results.", e);
-    return { results: [] };
-  }
-};
-
-export const analyzeBusinessWebsite = async (url: string) => {
-  const ai = getClient();
-  const config: any = { 
-    responseMimeType: "application/json",
-    responseSchema: {
-      type: Type.OBJECT,
-      properties: {
-        companyName: { type: Type.STRING },
-        industry: { type: Type.STRING, description: "Select from: Technology, Financial Services, Healthcare, Retail, Manufacturing, Consulting, Professional Services, Energy, Logistics" },
-        subIndustry: { type: Type.STRING },
-        businessModel: { type: Type.STRING, description: "Select from: SaaS, Services, Ecommerce, Marketplace, Manufacturing, Hybrid" },
-        customerType: { type: Type.STRING, description: "Select from: B2B, B2C, Hybrid, B2G" },
-        marketScope: { type: Type.STRING, description: "Select from: Global, Regional, Local" },
-        growthRegions: { type: Type.ARRAY, items: { type: Type.STRING } },
-        summary: { type: Type.STRING },
-        primaryGoal: { type: Type.STRING },
-        competitiveIntensity: { type: Type.STRING, description: "Select from: Low, Medium, High" },
-        pricingModel: { type: Type.STRING }
-      },
-      required: ['companyName', 'industry', 'businessModel', 'summary']
-    }
-  };
-  
-  if (!isSearchToolDisabled) config.tools = [{ googleSearch: {} }];
-
-  try {
-    const response = await generateWithFallback(ai, {
-      model: 'gemini-3-flash-preview',
-      contents: `Audit the website ${url}. Extract all strategic metadata for registration. If info is missing, use logical industry defaults. Return Strictly JSON.`,
-      config
-    });
-    return parseJSON(response.text || "{}") || {};
-  } catch (e) {
-    console.warn("Website analysis failure.", e);
-    return {};
-  }
+  return parseStrictJSON(res.text) || {};
 };
 
 export const generateChatResponse = async function* (history: Message[], currentMessage: string, user: User, project?: Project) {
   const ai = getClient();
-  const isComplex = currentMessage.length > 80 || /analyze|strategy|market|audit|competitor|framework|chart/i.test(currentMessage);
-  
-  const contents = history.slice(-8).map(m => {
-    const parts: any[] = [{ text: m.content }];
-    if (m.attachments && m.attachments.length > 0) {
-      m.attachments.forEach(file => {
-        if (file.mimeType.startsWith('image/')) {
-          parts.push({ inlineData: { data: file.content, mimeType: file.mimeType } });
-        } else {
-          parts.push({ text: `[FILE: ${file.name}] ${file.content.substring(0, 10000)}` });
-        }
-      });
-    }
-    return { role: m.role, parts };
-  });
+  const contents = history.slice(-10).map(m => ({
+    role: m.role,
+    parts: [{ text: m.content }]
+  }));
 
   const config: any = { 
     systemInstruction: getSystemInstruction(user, project),
-    thinkingConfig: isComplex ? { thinkingBudget: 16000 } : undefined
+    thinkingConfig: { thinkingBudget: 16000 }
   };
-  
-  if (!isSearchToolDisabled) {
-    config.tools = [{ googleSearch: {} }];
-  }
+  if (!isSearchToolDisabled) config.tools = [{ googleSearch: {} }];
 
   try {
-    const stream = await ai.models.generateContentStream({ model: 'gemini-3-pro-preview', contents, config });
-    for await (const chunk of stream) { yield { text: chunk.text }; }
-  } catch (error: any) {
-    const errStr = JSON.stringify(error);
-    const isQuotaError = errStr.includes("429") || errStr.includes("RESOURCE_EXHAUSTED");
-    const isRpcError = errStr.includes("Rpc failed") || errStr.includes("xhr error");
-
-    if (isQuotaError || isRpcError) {
-      isSearchToolDisabled = true;
-      delete config.tools;
-      const stream = await ai.models.generateContentStream({ model: 'gemini-3-pro-preview', contents, config });
-      for await (const chunk of stream) { yield { text: chunk.text }; }
-    } else { throw error; }
+    const stream = await ai.models.generateContentStream({
+      model: 'gemini-3-pro-preview',
+      contents,
+      config
+    });
+    for await (const chunk of stream) yield { text: chunk.text };
+  } catch (e) {
+    console.error("Stream failed:", e);
+    yield { text: "Protocol interrupted. Retrying..." };
   }
 };
 
 export const generateStrategicReport = async (user: User): Promise<StrategicReport> => {
   const ai = getClient();
-  const config: any = { 
-    thinkingConfig: { thinkingBudget: 24000 },
-    responseMimeType: "application/json",
-    responseSchema: {
-      type: Type.OBJECT,
-      properties: {
-        id: { type: Type.STRING }, title: { type: Type.STRING }, date: { type: Type.STRING }, type: { type: Type.STRING }, impactLevel: { type: Type.STRING }, summary: { type: Type.STRING }, content: { type: Type.STRING }, companiesInvolved: { type: Type.ARRAY, items: { type: Type.STRING } }
-      },
-      required: ['id', 'title', 'date', 'type', 'impactLevel', 'summary', 'content', 'companiesInvolved']
-    }
-  };
-
-  if (!isSearchToolDisabled) config.tools = [{ googleSearch: {} }];
-
-  const response = await generateWithFallback(ai, {
+  const res = await generateWithHardenedFallback(ai, {
     model: 'gemini-3-pro-preview',
-    contents: `Generate a board-ready strategic manifesto for ${user.companyName}. goal: ${user.dna.primaryGoal}. content must be Markdown.`,
-    config
+    contents: `Generate a board-ready strategic manifesto for ${user.companyName}. Goal: ${user.dna.primaryGoal}. Return as JSON with title, summary, and long markdown content.`,
+    config: {
+      responseMimeType: "application/json",
+      thinkingConfig: { thinkingBudget: 24000 }
+    }
   });
-  
-  const raw = parseJSON(response.text || "{}") || {};
+  const raw = parseStrictJSON(res.text) || {};
   return {
-    id: raw.id || Date.now().toString(),
-    title: raw.title || "Strategic Brief",
-    date: raw.date || new Date().toLocaleDateString(),
-    type: raw.type || "Opportunity",
-    impactLevel: raw.impactLevel || "High",
-    summary: raw.summary || "Summary generation failed.",
+    id: Date.now().toString(),
+    title: raw.title || "Strategic Briefing",
+    date: new Date().toLocaleDateString(),
+    type: 'Opportunity',
+    impactLevel: 'High',
+    summary: raw.summary || "Synthesizing market signals...",
     content: raw.content || "Content generation failed.",
-    companiesInvolved: raw.companiesInvolved || []
+    companiesInvolved: []
   };
 };
 
 export const generateMarketingCampaign = async (user: User, prompt: string): Promise<MarketingAsset[]> => {
   const ai = getClient();
-  const config: any = { 
-    responseMimeType: "application/json",
-    responseSchema: {
-      type: Type.ARRAY,
-      items: { type: Type.OBJECT, properties: { id: { type: Type.STRING }, channel: { type: Type.STRING }, title: { type: Type.STRING }, content: { type: Type.STRING }, tags: { type: Type.ARRAY, items: { type: Type.STRING } }, status: { type: Type.STRING }, timestamp: { type: Type.STRING } }, required: ['id', 'channel', 'title', 'content', 'tags', 'status', 'timestamp'] }
-    }
-  };
-
-  if (!isSearchToolDisabled) config.tools = [{ googleSearch: {} }];
-
-  const response = await generateWithFallback(ai, {
+  const res = await generateWithHardenedFallback(ai, {
     model: 'gemini-3-flash-preview',
-    contents: `Create 3 marketing assets for ${user.companyName} based on: ${prompt}.`,
-    config
+    contents: `Draft 3 marketing assets for ${user.companyName} (${user.industry}) based on this request: "${prompt}". Return as JSON array of assets.`,
+    config: {
+      responseMimeType: "application/json"
+    }
   });
-  return parseJSON(response.text || "[]") || [];
+  const assets = parseStrictJSON(res.text) || [];
+  return assets.map((a: any) => ({
+    id: a.id || `ma-${Date.now()}-${Math.random()}`,
+    channel: a.channel || 'Email',
+    title: a.title || 'Asset Title',
+    content: a.content || 'Content...',
+    tags: a.tags || [],
+    status: 'Ready',
+    timestamp: new Date().toISOString()
+  }));
 };
 
-export const generateMarketingImage = async (prompt: string): Promise<string | null> => {
+export const analyzeBusinessWebsite = async (url: string) => {
   const ai = getClient();
-  const response = await ai.models.generateContent({
-    model: 'gemini-2.5-flash-image',
-    contents: { parts: [{ text: `High-end consulting visual: ${prompt}` }] },
-    config: { imageConfig: { aspectRatio: "16:9" } }
+  const res = await generateWithHardenedFallback(ai, {
+    model: 'gemini-3-flash-preview',
+    contents: `Extract strategic DNA from website ${url}.`,
+    config: { responseMimeType: "application/json" }
   });
-  for (const part of response.candidates?.[0]?.content?.parts || []) { if (part.inlineData) return `data:image/png;base64,${part.inlineData.data}`; }
-  return null;
+  return parseStrictJSON(res.text) || {};
 };
 
-export const editStrategicImage = async (base64Image: string, prompt: string): Promise<string | null> => {
+export const generateMarketingImage = async (prompt: string) => {
   const ai = getClient();
-  const response = await ai.models.generateContent({
+  const res = await ai.models.generateContent({
     model: 'gemini-2.5-flash-image',
-    contents: { parts: [{ inlineData: { data: base64Image.split(',')[1], mimeType: 'image/png' } }, { text: `Modify: ${prompt}` }] },
+    contents: `Elite consulting visual for: ${prompt}`,
     config: { imageConfig: { aspectRatio: "16:9" } }
   });
-  for (const part of response.candidates?.[0]?.content?.parts || []) { if (part.inlineData) return `data:image/png;base64,${part.inlineData.data}`; }
-  return null;
+  const part = res.candidates?.[0]?.content?.parts.find(p => p.inlineData);
+  return part ? `data:image/png;base64,${part.inlineData.data}` : null;
 };

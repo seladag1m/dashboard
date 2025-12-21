@@ -21,7 +21,6 @@ import {
   ChevronRight, 
   ChevronLeft,
   Loader2,
-  Settings,
   ShieldCheck,
   Sparkles,
   Command,
@@ -118,7 +117,8 @@ export const AuthPage: React.FC<AuthPageProps> = ({ type, onNavigate, onLogin })
       }
     } catch (e) {
       console.warn("Website analysis failed", e);
-      setStatusMessage(null);
+      setStatusMessage("Unable to extract DNA. Manual input required.");
+      setTimeout(() => setStatusMessage(null), 3000);
     } finally {
       setIsAiProcessing(false);
     }
@@ -127,13 +127,13 @@ export const AuthPage: React.FC<AuthPageProps> = ({ type, onNavigate, onLogin })
   const handleRegister = async () => {
     setLoading(true);
     setError(null);
-    setStatusMessage("Locking Institutional DNA...");
+    setStatusMessage("Finalizing Strategic Lock...");
     try {
-      const user: UserType = {
-        id: Math.random().toString(36).substr(2, 9),
+      const newUser: UserType = {
+        id: `usr-${Math.random().toString(36).substr(2, 9)}`,
         name: form.name,
         email: form.email,
-        companyName: form.companyName,
+        companyName: form.companyName || 'Private Entity',
         industry: form.industry,
         size: 'Startup (2-10)', 
         region: 'Global',
@@ -141,7 +141,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ type, onNavigate, onLogin })
         language: 'English',
         dna: {
           website: form.website,
-          productSummary: form.productSummary || "Autonomous client profile.",
+          productSummary: form.productSummary || "Client profile active.",
           targetCustomer: form.customerType,
           businessModel: form.businessModel,
           industry: form.industry,
@@ -151,9 +151,9 @@ export const AuthPage: React.FC<AuthPageProps> = ({ type, onNavigate, onLogin })
           competitiveIntensity: form.competitiveIntensity,
           strategicPriorities: form.strategicPriorities,
           confidenceLevel: form.confidenceLevel,
-          pricingModel: form.pricingModel || "Standard",
+          pricingModel: form.pricingModel || "N/A",
           primaryGoal: form.primaryGoal,
-          brandIdentity: { tone: 'Professional', colors: 'Blue/White', vibe: 'Modern' },
+          brandIdentity: { tone: 'Professional', colors: 'Navy/Slate', vibe: 'Modern' },
           competitorPreference: 'Global',
           challenges: [],
           permissions: {
@@ -165,7 +165,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ type, onNavigate, onLogin })
         }
       };
       
-      const res = await db.auth.register(user, form.password);
+      const res = await db.auth.register(newUser, form.password);
       onLogin(res);
     } catch (e: any) {
       setError(e.message);
@@ -179,13 +179,11 @@ export const AuthPage: React.FC<AuthPageProps> = ({ type, onNavigate, onLogin })
     e.preventDefault();
     setLoading(true);
     setError(null);
-    setStatusMessage("Restoring command session...");
     try {
       const user = await db.auth.login(form.email, form.password);
       onLogin(user);
-    } catch (e) {
-      setError("Strategic authentication failed.");
-      setStatusMessage(null);
+    } catch (e: any) {
+      setError(e.message);
     } finally {
       setLoading(false);
     }
@@ -201,12 +199,6 @@ export const AuthPage: React.FC<AuthPageProps> = ({ type, onNavigate, onLogin })
               <p className="text-slate-400 text-sm font-light">Enter credentials to restore your strategic dashboard.</p>
            </div>
            
-           {statusMessage && (
-              <div className="bg-blue-50 text-brand-blue text-xs p-4 rounded-xl flex items-center gap-3 border border-blue-100/50 animate-pulse">
-                <Loader2 size={14} className="animate-spin" /> {statusMessage}
-              </div>
-           )}
-
            {error && (
              <div className="bg-rose-50 text-rose-600 text-xs p-4 rounded-xl flex items-center gap-3 border border-rose-100/50">
                <ShieldAlert size={14}/> {error}
@@ -272,14 +264,12 @@ export const AuthPage: React.FC<AuthPageProps> = ({ type, onNavigate, onLogin })
       {/* Main Form Area */}
       <div className="flex-1 overflow-y-auto px-8 py-20 md:px-24 md:py-32 flex flex-col items-center custom-scrollbar">
          <div className="w-full max-w-xl space-y-16">
-            {/* Step Progress Bar */}
             <div className="flex gap-1.5">
                {steps.map((s) => (
                  <div key={s.id} className={`h-1 flex-1 rounded-full transition-all duration-1000 ${step >= s.id ? 'bg-brand-blue shadow-lg shadow-brand-blue/20' : 'bg-slate-100'}`}></div>
                ))}
             </div>
 
-            {/* AI Status Indicator */}
             {statusMessage && (
                <div className="bg-blue-50/50 text-brand-blue text-xs p-6 rounded-[2rem] flex items-center gap-4 border border-blue-100/50 animate-reveal shadow-sm">
                   <div className="w-10 h-10 rounded-full bg-white shadow-sm flex items-center justify-center shrink-0">
@@ -289,13 +279,6 @@ export const AuthPage: React.FC<AuthPageProps> = ({ type, onNavigate, onLogin })
                     <p className="font-bold uppercase tracking-widest text-[9px] mb-0.5">Strategy Engine</p>
                     <p className="text-blue-800/80 italic font-medium">{statusMessage}</p>
                   </div>
-                  {isAiProcessing && (
-                     <div className="flex gap-0.5">
-                        <div className="w-1 h-3 bg-brand-blue/20 rounded-full animate-pulse"></div>
-                        <div className="w-1 h-5 bg-brand-blue/40 rounded-full animate-pulse delay-75"></div>
-                        <div className="w-1 h-4 bg-brand-blue/60 rounded-full animate-pulse delay-150"></div>
-                     </div>
-                  )}
                </div>
             )}
 
@@ -323,9 +306,6 @@ export const AuthPage: React.FC<AuthPageProps> = ({ type, onNavigate, onLogin })
                    <div className="space-y-3 relative group">
                       <div className="flex items-center justify-between px-1">
                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Firm Footprint</label>
-                         <div className="flex items-center gap-1.5 text-[9px] font-bold text-brand-blue uppercase tracking-widest opacity-0 group-focus-within:opacity-100 transition-opacity">
-                            <Sparkles size={10} /> AI Auto-Fill Active
-                         </div>
                       </div>
                       <div className="relative">
                         <Input 
@@ -336,15 +316,11 @@ export const AuthPage: React.FC<AuthPageProps> = ({ type, onNavigate, onLogin })
                           placeholder="https://yourfirm.com" 
                           className="h-16 text-lg pl-6 pr-12 rounded-[1.5rem] border-slate-100 bg-slate-50/50 hover:bg-white focus:bg-white transition-all shadow-sm"
                         />
-                        {isAiProcessing ? (
+                        {isAiProcessing && (
                           <div className="absolute right-6 top-1/2 -translate-y-1/2 text-brand-blue">
                              <Loader2 size={20} className="animate-spin" />
                           </div>
-                        ) : form.website.length > 5 ? (
-                          <div className="absolute right-6 top-1/2 -translate-y-1/2 text-emerald-500">
-                             <Check size={20} />
-                          </div>
-                        ) : null}
+                        )}
                       </div>
                    </div>
                    
@@ -446,7 +422,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ type, onNavigate, onLogin })
                 </div>
                 <div className="space-y-4">
                    <h2 className="text-5xl font-serif italic font-bold text-slate-900 tracking-tight">Institutional Lock</h2>
-                   <p className="text-slate-400 text-lg font-light leading-relaxed max-w-sm mx-auto">Strategic DNA established for {form.companyName}. Reasoning engine is primed.</p>
+                   <p className="text-slate-400 text-lg font-light leading-relaxed max-w-sm mx-auto">Strategic DNA established for {form.companyName || 'the entity'}. Reasoning engine is primed.</p>
                 </div>
                 
                 <div className="grid grid-cols-3 gap-4 py-8">
@@ -473,7 +449,6 @@ export const AuthPage: React.FC<AuthPageProps> = ({ type, onNavigate, onLogin })
               </div>
             )}
 
-            {/* Navigation Controls */}
             <div className="flex items-center justify-between pt-16">
                {step > 1 ? (
                  <button onClick={() => setStep(step - 1)} className="text-xs font-bold text-slate-400 uppercase tracking-[0.2em] hover:text-slate-900 transition-colors flex items-center gap-3">
