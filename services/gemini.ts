@@ -4,8 +4,9 @@ import { Message, User, StrategicReport, MarketingAsset, Project } from "../type
 
 let isSearchToolDisabled = false;
 
+// Helper to initialize the client strictly per guidelines
 const getClient = () => {
-  const key = process.env.API_KEY; 
+  const key = process.env.API_KEY;
   if (!key) throw new Error("Strategic Engine Offline: API_KEY is missing.");
   return new GoogleGenAI({ apiKey: key });
 };
@@ -52,9 +53,9 @@ async function generateWithHardenedFallback(params: any) {
   } catch (error: any) {
     const errStr = (error?.message || JSON.stringify(error)).toLowerCase();
     
-    // Specifically handle the 500 XHR / Proxy error by retrying without tools
+    // Specifically handle environment or tool-specific failures by falling back to core reasoning
     if (errStr.includes("xhr error") || errStr.includes("500") || errStr.includes("not found") || errStr.includes("429")) {
-      console.warn("Strategic Engine: Tool-based grounding failed. Retrying without external search.");
+      console.warn("Strategic Engine: External grounding failure. Deploying internal reasoning protocols.");
       if (hasTools) isSearchToolDisabled = true;
 
       const fallbackParams = { ...params };
@@ -73,10 +74,11 @@ async function generateWithHardenedFallback(params: any) {
 const buildExecutiveContext = (user: User, project?: Project) => {
   const dna = user.dna;
   return `
-    ROLE: Chief Strategic Advisor for ${user.companyName}.
+    ROLE: Chief Strategic Advisor & AI Intel Engine for ${user.companyName}.
     SECTOR: ${user.industry}. DNA: ${dna.businessModel}, Scope: ${dna.marketScope}.
-    SOCIALS: LinkedIn: ${dna.socialProfiles?.linkedin}, Twitter: ${dna.socialProfiles?.twitter}.
-    OBJECTIVE: ${dna.primaryGoal}.
+    MISSION: Provide high-fidelity, premium strategic intelligence.
+    BRAND TONE: Executive, precise, data-driven, and elite.
+    PROJECT: ${project ? `Current Mandate: ${project.name}. Goal: ${project.goal}` : 'General Oversight'}.
   `;
 };
 
@@ -91,9 +93,38 @@ export const fetchRealTimeIntelligence = async (user: User, type: string) => {
       responseSchema = {
         type: Type.OBJECT,
         properties: {
-          realityBar: { type: Type.OBJECT, properties: { score: { type: Type.NUMBER }, insight: { type: Type.STRING }, confidence: { type: Type.STRING } }, required: ['score', 'insight', 'confidence'] },
-          momentum: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { m: { type: Type.STRING }, v: { type: Type.NUMBER } } } },
-          alerts: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { category: { type: Type.STRING }, title: { type: Type.STRING }, time: { type: Type.STRING }, desc: { type: Type.STRING }, strategicMove: { type: Type.STRING } } } }
+          realityBar: { 
+            type: Type.OBJECT, 
+            properties: { 
+              score: { type: Type.NUMBER }, 
+              insight: { type: Type.STRING }, 
+              confidence: { type: Type.STRING } 
+            }, 
+            required: ['score', 'insight', 'confidence'] 
+          },
+          momentum: { 
+            type: Type.ARRAY, 
+            items: { 
+              type: Type.OBJECT, 
+              properties: { 
+                m: { type: Type.STRING }, 
+                v: { type: Type.NUMBER } 
+              } 
+            } 
+          },
+          alerts: { 
+            type: Type.ARRAY, 
+            items: { 
+              type: Type.OBJECT, 
+              properties: { 
+                category: { type: Type.STRING }, 
+                title: { type: Type.STRING }, 
+                time: { type: Type.STRING }, 
+                desc: { type: Type.STRING }, 
+                strategicMove: { type: Type.STRING } 
+              } 
+            } 
+          }
         }
       };
       break;
@@ -107,8 +138,20 @@ export const fetchRealTimeIntelligence = async (user: User, type: string) => {
             items: {
               type: Type.OBJECT,
               properties: {
-                name: { type: Type.STRING }, url: { type: Type.STRING }, location: { type: Type.STRING }, latitude: { type: Type.STRING }, longitude: { type: Type.STRING },
-                swot: { type: Type.OBJECT, properties: { strengths: { type: Type.ARRAY, items: { type: Type.STRING } }, weaknesses: { type: Type.ARRAY, items: { type: Type.STRING } }, opportunities: { type: Type.ARRAY, items: { type: Type.STRING } }, threats: { type: Type.ARRAY, items: { type: Type.STRING } } } }
+                name: { type: Type.STRING }, 
+                url: { type: Type.STRING }, 
+                location: { type: Type.STRING }, 
+                latitude: { type: Type.STRING }, 
+                longitude: { type: Type.STRING },
+                swot: { 
+                  type: Type.OBJECT, 
+                  properties: { 
+                    strengths: { type: Type.ARRAY, items: { type: Type.STRING } }, 
+                    weaknesses: { type: Type.ARRAY, items: { type: Type.STRING } }, 
+                    opportunities: { type: Type.ARRAY, items: { type: Type.STRING } }, 
+                    threats: { type: Type.ARRAY, items: { type: Type.STRING } } 
+                  } 
+                }
               }
             }
           }
@@ -120,19 +163,67 @@ export const fetchRealTimeIntelligence = async (user: User, type: string) => {
       responseSchema = {
         type: Type.OBJECT,
         properties: {
-          porters: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { factor: { type: Type.STRING }, score: { type: Type.NUMBER }, insight: { type: Type.STRING } } } },
-          geoDemand: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { lat: { type: Type.NUMBER }, lng: { type: Type.NUMBER }, intensity: { type: Type.NUMBER }, title: { type: Type.STRING } } } },
-          matrix: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { name: { type: Type.STRING }, x: { type: Type.NUMBER }, y: { type: Type.NUMBER }, z: { type: Type.NUMBER }, sentiment: { type: Type.NUMBER } } } }
+          porters: { 
+            type: Type.ARRAY, 
+            items: { 
+              type: Type.OBJECT, 
+              properties: { 
+                factor: { type: Type.STRING }, 
+                score: { type: Type.NUMBER }, 
+                insight: { type: Type.STRING } 
+              } 
+            } 
+          },
+          geoDemand: { 
+            type: Type.ARRAY, 
+            items: { 
+              type: Type.OBJECT, 
+              properties: { 
+                lat: { type: Type.NUMBER }, 
+                lng: { type: Type.NUMBER }, 
+                intensity: { type: Type.NUMBER }, 
+                title: { type: Type.STRING } 
+              } 
+            } 
+          },
+          matrix: { 
+            type: Type.ARRAY, 
+            items: { 
+              type: Type.OBJECT, 
+              properties: { 
+                name: { type: Type.STRING }, 
+                x: { type: Type.NUMBER }, 
+                y: { type: Type.NUMBER }, 
+                z: { type: Type.NUMBER }, 
+                sentiment: { type: Type.NUMBER } 
+              } 
+            } 
+          }
         }
       };
       break;
     case 'social':
-      prompt = `${context}\nPerform Social Intelligence Audit comparing ${user.companyName} vs Rivals. Identify Strike Zones (where you beat them) and Risk Vectors. Return JSON.`;
+      prompt = `${context}\nPerform Social Intelligence Audit comparing ${user.companyName} vs Rivals. Identify Strike Zones and Risk Vectors. Return JSON.`;
       responseSchema = {
         type: Type.OBJECT,
         properties: {
-          sentiment: { type: Type.OBJECT, properties: { score: { type: Type.NUMBER }, label: { type: Type.STRING } } },
-          trends: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { m: { type: Type.STRING }, v: { type: Type.NUMBER } } } },
+          sentiment: { 
+            type: Type.OBJECT, 
+            properties: { 
+              score: { type: Type.NUMBER }, 
+              label: { type: Type.STRING } 
+            } 
+          },
+          trends: { 
+            type: Type.ARRAY, 
+            items: { 
+              type: Type.OBJECT, 
+              properties: { 
+                m: { type: Type.STRING }, 
+                v: { type: Type.NUMBER } 
+              } 
+            } 
+          },
           signals: {
             type: Type.OBJECT,
             properties: {
@@ -150,7 +241,11 @@ export const fetchRealTimeIntelligence = async (user: User, type: string) => {
   const res = await generateWithHardenedFallback({
     model: 'gemini-3-flash-preview',
     contents: prompt,
-    config: { responseMimeType: "application/json", responseSchema, tools: isSearchToolDisabled ? [] : [{ googleSearch: {} }] }
+    config: { 
+      responseMimeType: "application/json", 
+      responseSchema, 
+      tools: isSearchToolDisabled ? [] : [{ googleSearch: {} }] 
+    }
   });
   return parseStrictJSON(res.text) || {};
 };
@@ -161,7 +256,7 @@ export const generateMarketingCampaign = async (user: User, userPrompt: string):
   if (isVisual) {
     const res = await generateWithHardenedFallback({
       model: 'gemini-2.5-flash-image',
-      contents: `Generate a high-end commercial visual for ${user.companyName} (${user.industry}). Request: ${userPrompt}. Tone: ${user.dna.brandIdentity.tone}.`,
+      contents: `Generate a high-end commercial visual for ${user.companyName} (${user.industry}). Request: ${userPrompt}. Tone: ${user.dna.brandIdentity.tone}. Premium consulting aesthetic.`,
       config: { imageConfig: { aspectRatio: "16:9" } }
     });
 
@@ -173,11 +268,11 @@ export const generateMarketingCampaign = async (user: User, userPrompt: string):
     return [{
       id: `img-${Date.now()}`,
       channel: 'Ad',
-      title: 'Visual Prototype',
-      content: 'Synthesized via Vision Protocol.',
+      title: 'Strategic Visual Prototype',
+      content: 'Synthesized via Vision Protocol for board review.',
       isImage: true,
       imageData: base64,
-      tags: ['Visual', 'Deployment'],
+      tags: ['Visual', 'Deployment', 'Premium'],
       status: 'Ready',
       timestamp: new Date().toISOString()
     }];
@@ -198,7 +293,6 @@ export const generateMarketingCampaign = async (user: User, userPrompt: string):
 };
 
 export const analyzeBusinessWebsite = async (url: string) => {
-  // Use a text-based prompt as fallback if structured extraction fails
   const prompt = `Conduct a real-time crawl of ${url} using Google Search. Extract institutional data.
   Respond ONLY with a JSON object in this format:
   {
@@ -227,7 +321,7 @@ export const analyzeBusinessWebsite = async (url: string) => {
     if (!parsed || !parsed.companyName) throw new Error("Incomplete extraction");
     return parsed;
   } catch (e) {
-    console.error("Analysis failed", e);
+    console.error("Website Analysis failed", e);
     return null;
   }
 };
@@ -236,17 +330,20 @@ export const generateStrategicReport = async (user: User): Promise<StrategicRepo
   const res = await generateWithHardenedFallback({
     model: 'gemini-3-pro-preview',
     contents: `Board Manifesto for ${user.companyName}. Sector: ${user.industry}. Return JSON {title, summary, content}.`,
-    config: { responseMimeType: "application/json", thinkingConfig: { thinkingBudget: 16000 } }
+    config: { 
+      responseMimeType: "application/json", 
+      thinkingConfig: { thinkingBudget: 16000 } 
+    }
   });
   const raw = parseStrictJSON(res.text) || {};
   return {
     id: `rep-${Date.now()}`,
-    title: raw.title || "Strategic Brief",
+    title: raw.title || "Strategic Briefing",
     date: new Date().toLocaleDateString(),
     type: 'Opportunity',
     impactLevel: 'High',
-    summary: raw.summary || "Strategizing...",
-    content: raw.content || "N/A",
+    summary: raw.summary || "Synthesizing mandate...",
+    content: raw.content || "Report content not generated.",
     companiesInvolved: []
   };
 };
@@ -254,10 +351,17 @@ export const generateStrategicReport = async (user: User): Promise<StrategicRepo
 export const generateChatResponse = async function* (history: Message[], currentMessage: string, user: User, project?: Project) {
   const context = buildExecutiveContext(user, project);
   const ai = getClient();
+  
   const stream = await ai.models.generateContentStream({
     model: 'gemini-3-pro-preview',
-    contents: history.slice(-8).map(m => ({ role: m.role, parts: [{ text: m.content }] })),
-    config: { systemInstruction: context, thinkingConfig: { thinkingBudget: 12000 } }
+    contents: history.slice(-10).map(m => ({ role: m.role, parts: [{ text: m.content }] })),
+    config: { 
+      systemInstruction: context, 
+      thinkingConfig: { thinkingBudget: 12000 } 
+    }
   });
-  for await (const chunk of stream) yield { text: chunk.text };
+  
+  for await (const chunk of stream) {
+    yield { text: chunk.text };
+  }
 };
