@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Globe, TrendingUp, AlertTriangle, Zap, Target, Activity, 
   ArrowRight, Loader2, ExternalLink, ShieldCheck, CheckCircle, Wand2, FileText, Plus, Share2,
-  Map as MapIcon, ShieldX, Crosshair, TrendingDown, Eye, Users, X, Download, Info
+  Map as MapIcon, ShieldX, Crosshair, TrendingDown, Eye, Users, X, Download, Info, MoveUp, MoveDown, Minus
 } from 'lucide-react';
 import { Card, Button, Input, Modal } from './UI';
 import { MarketBubbleMatrix, CompetitorRadarChart, SalesAreaChart, RealMapWidget } from './Charts';
@@ -33,7 +33,24 @@ export const useLiveIntelligence = (
         }
       } catch (e: any) {
         const errStr = JSON.stringify(e);
-        if (errStr.includes("429") || errStr.includes("RESOURCE_EXHAUSTED")) {
+        
+        const isQuotaError = 
+          e?.code === 429 || 
+          e?.status === 'RESOURCE_EXHAUSTED' || 
+          e?.error?.code === 429 ||
+          e?.error?.status === 'RESOURCE_EXHAUSTED' ||
+          errStr.includes("429") || 
+          errStr.includes("RESOURCE_EXHAUSTED") ||
+          e?.message?.includes("429") ||
+          e?.message?.includes("quota");
+
+        const isRpcError = 
+          e?.code === 500 || 
+          errStr.includes("Rpc failed") || 
+          errStr.includes("xhr error") ||
+          e?.message?.includes("Rpc failed");
+
+        if (isQuotaError || isRpcError) {
           if (mounted) setIsQuotaLimited(true);
         }
         console.error("Intelligence hook failure", e);
@@ -59,7 +76,7 @@ const QuotaWarning = () => (
     <Info size={18} className="text-amber-500 shrink-0 mt-0.5" />
     <div className="text-left">
       <p className="text-xs font-bold text-amber-900 uppercase tracking-widest">Search Grounding Limited</p>
-      <p className="text-[10px] text-amber-700 leading-relaxed mt-1">Real-time search quota reached. Strategic Engine is utilizing internal neural intelligence and historical benchmarks to resolve signals.</p>
+      <p className="text-[10px] text-amber-700 leading-relaxed mt-1">Real-time search grounding or external proxies are currently restricted. Strategic Engine is utilizing internal neural intelligence and historical benchmarks to resolve signals.</p>
     </div>
   </div>
 );
@@ -278,9 +295,9 @@ const SocialProfileList: React.FC<{ title: string, profiles: SocialProfileData[]
   <Card title={title} headerAction={<Icon size={18} className="text-brand-blue" />}>
     <div className="divide-y divide-slate-50 mt-4 text-left">
       {profiles.map((p, i) => (
-        <div key={i} className="py-4 flex items-center justify-between">
+        <div key={i} className="py-4 flex items-center justify-between group">
           <div className="flex items-center gap-3 overflow-hidden text-left">
-            <div className="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center text-slate-400 shrink-0">
+            <div className="w-9 h-9 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 shrink-0 group-hover:bg-brand-blue group-hover:text-white transition-all">
               <span className="text-[10px] font-bold uppercase">{p.platform.slice(0, 2)}</span>
             </div>
             <div className="overflow-hidden">
@@ -288,11 +305,14 @@ const SocialProfileList: React.FC<{ title: string, profiles: SocialProfileData[]
               <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{p.platform}</p>
             </div>
           </div>
-          <div className="text-right">
-            <p className="text-xs font-bold text-slate-900">{p.followers}</p>
-            <div className="flex items-center gap-1.5 justify-end">
-              <span className={`text-[9px] font-bold ${p.trend?.startsWith('+') ? 'text-emerald-500' : 'text-rose-500'}`}>{p.trend}</span>
-              <span className="text-[9px] font-bold text-slate-300 uppercase tracking-widest">ER: {p.engagement}</span>
+          <div className="text-right flex items-center gap-4">
+            <div className="text-right">
+              <p className="text-xs font-bold text-slate-900">{p.followers}</p>
+              <p className="text-[9px] font-bold text-slate-300 uppercase tracking-widest">ER: {p.engagement}</p>
+            </div>
+            <div className="flex flex-col items-center justify-center shrink-0 w-8">
+              {p.trend?.startsWith('+') ? <MoveUp size={14} className="text-emerald-500" /> : p.trend?.startsWith('-') ? <MoveDown size={14} className="text-rose-500" /> : <Minus size={14} className="text-slate-200" />}
+              <span className={`text-[8px] font-bold ${p.trend?.startsWith('+') ? 'text-emerald-500' : p.trend?.startsWith('-') ? 'text-rose-500' : 'text-slate-300'}`}>{p.trend}</span>
             </div>
           </div>
         </div>
@@ -314,32 +334,43 @@ export const SocialPulseModule: React.FC<{ user: User, onAnalyze: (c: string) =>
   });
 
   return (
-    <div className="animate-reveal py-10 px-6 lg:px-12 space-y-12">
-      <div className="flex items-center justify-between border-b pb-8">
-        <h2 className="text-4xl font-serif font-bold text-slate-900 italic text-left">Market Pulse</h2>
-        {loading && <Loader2 className="animate-spin text-brand-blue" />}
+    <div className="animate-reveal py-10 px-6 lg:px-12 space-y-12 pb-32">
+      <div className="flex flex-col md:flex-row md:items-center justify-between border-b pb-8 gap-6">
+        <div className="text-left">
+          <h2 className="text-4xl font-serif font-bold text-slate-900 italic">Institutional Pulse</h2>
+          <p className="text-slate-500 text-sm mt-2">Real-time analysis of digital share of voice and movements.</p>
+        </div>
+        {loading && <div className="flex items-center gap-3 px-4 py-2 bg-slate-50 rounded-xl border border-slate-100">
+          <Loader2 className="animate-spin text-brand-blue" size={16} />
+          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Resolving Signals</span>
+        </div>}
       </div>
 
       {isQuotaLimited && <QuotaWarning />}
 
       {loading && data.engagementTrend.length === 0 ? (
-        <div className="py-20 flex flex-col items-center gap-4 text-slate-400">
-          <Loader2 className="animate-spin" size={32} />
-          <p className="text-sm font-medium">Analyzing digital sentiment and share of voice...</p>
+        <div className="py-40 flex flex-col items-center gap-6 text-slate-400">
+          <div className="w-16 h-16 rounded-[2rem] bg-white flex items-center justify-center shadow-premium">
+             <Activity className="animate-pulse text-brand-blue" size={32} />
+          </div>
+          <div className="text-center">
+            <p className="text-sm font-bold text-slate-900 uppercase tracking-widest">Synchronizing Context</p>
+            <p className="text-xs font-medium text-slate-400 mt-1">Ingesting platform engagement metadata and rival pulse...</p>
+          </div>
         </div>
       ) : (
         <>
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
             <Card title="Net Sentiment Score" className="text-center">
                 <div className="py-8">
-                  <div className="text-6xl font-serif font-bold text-slate-900">{data.overallSentiment?.score}%</div>
-                  <p className="text-xs font-bold text-emerald-500 mt-2 uppercase tracking-widest">{data.overallSentiment?.label} ({data.overallSentiment?.change})</p>
+                  <div className="text-6xl font-serif font-bold text-slate-900 tracking-tighter">{data.overallSentiment?.score}%</div>
+                  <p className="text-xs font-bold text-emerald-500 mt-3 uppercase tracking-widest">{data.overallSentiment?.label} ({data.overallSentiment?.change})</p>
                 </div>
-                <div className="h-2 w-full bg-slate-100 rounded-full mt-4 overflow-hidden">
-                  <div className="h-full bg-brand-blue" style={{ width: `${data.overallSentiment?.score}%` }}></div>
+                <div className="h-2 w-full bg-slate-100 rounded-full mt-4 overflow-hidden shadow-inner">
+                  <div className="h-full bg-brand-blue shadow-lg shadow-blue-500/20 transition-all duration-1000" style={{ width: `${data.overallSentiment?.score}%` }}></div>
                 </div>
             </Card>
-            <Card title="Engagement Trend" className="lg:col-span-3">
+            <Card title="Aggregated Engagement" className="lg:col-span-3">
               <div className="h-[250px] w-full mt-4">
                   <SalesAreaChart data={data.engagementTrend} />
               </div>
@@ -347,51 +378,64 @@ export const SocialPulseModule: React.FC<{ user: User, onAnalyze: (c: string) =>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <SocialProfileList title="Institutional Presence" profiles={data.userProfiles} icon={Activity} />
-            <SocialProfileList title="Rival Social Footprint" profiles={data.competitorProfiles} icon={Users} />
+            <SocialProfileList title="Our Institutional Presence" profiles={data.userProfiles} icon={Activity} />
+            <SocialProfileList title="Rival Market Footprint" profiles={data.competitorProfiles} icon={Users} />
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 text-left">
-            <Card title="Strategic Threats" className="border-l-4 border-l-rose-500">
-               <ul className="space-y-3 pt-4">
-                  {data.strategicSignals.threats.map((t, i) => (
-                    <li key={i} className="flex gap-3 text-xs text-slate-600 leading-relaxed italic">
-                       <ShieldX size={14} className="text-rose-500 shrink-0 mt-0.5" /> {t}
-                    </li>
-                  ))}
-                  {data.strategicSignals.threats.length === 0 && <p className="text-xs text-slate-400 italic">No threats identified.</p>}
-               </ul>
-            </Card>
-            <Card title="Strike Zones" className="border-l-4 border-l-brand-blue">
-               <ul className="space-y-3 pt-4">
-                  {data.strategicSignals.strikeZones.map((sz, i) => (
-                    <li key={i} className="flex gap-3 text-xs text-slate-600 leading-relaxed italic">
-                       <Crosshair size={14} className="text-brand-blue shrink-0 mt-0.5" /> {sz}
-                    </li>
-                  ))}
-                  {data.strategicSignals.strikeZones.length === 0 && <p className="text-xs text-slate-400 italic">No strike zones identified.</p>}
-               </ul>
-            </Card>
-            <Card title="Pulse Weakness" className="border-l-4 border-l-amber-500">
-               <ul className="space-y-3 pt-4">
-                  {data.strategicSignals.weaknesses.map((w, i) => (
-                    <li key={i} className="flex gap-3 text-xs text-slate-600 leading-relaxed italic">
-                       <TrendingDown size={14} className="text-amber-500 shrink-0 mt-0.5" /> {w}
-                    </li>
-                  ))}
-                  {data.strategicSignals.weaknesses.length === 0 && <p className="text-xs text-slate-400 italic">No weaknesses identified.</p>}
-               </ul>
-            </Card>
-            <Card title="Pulse Strengths" className="border-l-4 border-l-emerald-500">
-               <ul className="space-y-3 pt-4">
-                  {data.strategicSignals.strengths.map((s, i) => (
-                    <li key={i} className="flex gap-3 text-xs text-slate-600 leading-relaxed italic">
-                       <Zap size={14} className="text-emerald-500 shrink-0 mt-0.5" /> {s}
-                    </li>
-                  ))}
-                  {data.strategicSignals.strengths.length === 0 && <p className="text-xs text-slate-400 italic">No strengths identified.</p>}
-               </ul>
-            </Card>
+          <div className="space-y-8 text-left">
+            <div className="flex items-center gap-4">
+              <Target size={24} className="text-brand-blue" />
+              <h3 className="text-2xl font-serif font-bold text-slate-900 italic">Strategic Social Signals</h3>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 text-left">
+              <Card title="Dominance Threats" className="border-t-4 border-t-rose-500">
+                 <ul className="space-y-4 pt-4">
+                    {data.strategicSignals.threats.map((t, i) => (
+                      <li key={i} className="flex gap-4 text-sm text-slate-600 leading-relaxed italic group">
+                         <ShieldX size={18} className="text-rose-500 shrink-0 mt-0.5 group-hover:scale-110 transition-transform" /> 
+                         <span>{t}</span>
+                      </li>
+                    ))}
+                    {data.strategicSignals.threats.length === 0 && <p className="text-xs text-slate-400 italic">No threats identified.</p>}
+                 </ul>
+              </Card>
+              <Card title="Strike Zones" className="border-t-4 border-t-brand-blue">
+                 <ul className="space-y-4 pt-4">
+                    {data.strategicSignals.strikeZones.map((sz, i) => (
+                      <li key={i} className="flex gap-4 text-sm text-slate-600 leading-relaxed italic group">
+                         <Crosshair size={18} className="text-brand-blue shrink-0 mt-0.5 group-hover:scale-110 transition-transform" /> 
+                         <span>{sz}</span>
+                      </li>
+                    ))}
+                    {data.strategicSignals.strikeZones.length === 0 && <p className="text-xs text-slate-400 italic">No strike zones identified.</p>}
+                 </ul>
+              </Card>
+              <Card title="Internal Gaps" className="border-t-4 border-t-amber-500">
+                 <ul className="space-y-4 pt-4">
+                    {data.strategicSignals.weaknesses.map((w, i) => (
+                      <li key={i} className="flex gap-4 text-sm text-slate-600 leading-relaxed italic group">
+                         <TrendingDown size={18} className="text-amber-500 shrink-0 mt-0.5 group-hover:scale-110 transition-transform" /> 
+                         <span>{w}</span>
+                      </li>
+                    ))}
+                    {data.strategicSignals.weaknesses.length === 0 && <p className="text-xs text-slate-400 italic">No gaps identified.</p>}
+                 </ul>
+              </Card>
+              <Card title="Viral Themes" className="border-t-4 border-t-emerald-500">
+                 <ul className="space-y-4 pt-4">
+                    {data.strategicSignals.strengths.map((s, i) => (
+                      <li key={i} className="flex gap-4 text-sm text-slate-600 leading-relaxed italic group">
+                         <Zap size={18} className="text-emerald-500 shrink-0 mt-0.5 group-hover:scale-110 transition-transform" /> 
+                         <span>{s}</span>
+                      </li>
+                    ))}
+                    {data.strategicSignals.strengths.length === 0 && <p className="text-xs text-slate-400 italic">No themes identified.</p>}
+                 </ul>
+              </Card>
+            </div>
+            <div className="flex justify-center pt-8">
+               <Button onClick={() => onAnalyze("Draft a high-engagement tactical content strategy based on identified Strike Zones.")} size="lg" className="rounded-full shadow-premium">Convert Pulse to Content Strategy</Button>
+            </div>
           </div>
         </>
       )}

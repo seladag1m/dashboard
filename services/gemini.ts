@@ -2,7 +2,7 @@
 import { GoogleGenAI, Type, Modality } from "@google/genai";
 import { Message, User, StrategicReport, MarketingAsset, Project } from "../types";
 
-// Session-level flag to avoid repeated 429 errors from Search Grounding
+// Session-level flag to avoid repeated errors from Search Grounding or transient RPC failures
 let isSearchToolDisabled = false;
 
 const getClient = () => {
@@ -30,11 +30,11 @@ const parseJSON = (text: string) => {
 };
 
 /**
- * Robust wrapper to handle Google Search quota exhaustion (Error 429).
- * Detects quota limits and disables the tool for the remainder of the session.
+ * Robust wrapper to handle Google Search quota exhaustion (Error 429) 
+ * and transient RPC/500 failures.
+ * Detects failures and disables the search tool for the session to maintain stability.
  */
 async function generateWithFallback(ai: any, params: any) {
-  // If search is already known to be exhausted, remove it from params before trying
   const hasTools = !!(params.config?.tools && params.config.tools.length > 0);
   
   if (isSearchToolDisabled && hasTools) {
@@ -47,11 +47,27 @@ async function generateWithFallback(ai: any, params: any) {
     return await ai.models.generateContent(params);
   } catch (error: any) {
     const errStr = JSON.stringify(error);
-    const isQuotaError = errStr.includes("429") || errStr.includes("RESOURCE_EXHAUSTED");
     
-    // Fallback if quota is hit AND tools were present
-    if (isQuotaError && hasTools) {
-      console.warn("Search Grounding or Tool quota exceeded. Disabling search for this session and falling back.");
+    const isQuotaError = 
+      error?.code === 429 || 
+      error?.status === 'RESOURCE_EXHAUSTED' || 
+      error?.error?.code === 429 ||
+      error?.error?.status === 'RESOURCE_EXHAUSTED' ||
+      errStr.includes("429") || 
+      errStr.includes("RESOURCE_EXHAUSTED") ||
+      error?.message?.includes("429") ||
+      error?.message?.includes("quota");
+
+    const isRpcError = 
+      error?.code === 500 || 
+      error?.status === 'INTERNAL' ||
+      errStr.includes("Rpc failed") || 
+      errStr.includes("xhr error") ||
+      error?.message?.includes("Rpc failed") ||
+      error?.message?.includes("500");
+    
+    if ((isQuotaError || isRpcError) && hasTools) {
+      console.warn("Intelligence Tool Failure. Falling back to internal neural knowledge.");
       isSearchToolDisabled = true;
       
       const fallbackParams = { ...params };
@@ -62,7 +78,6 @@ async function generateWithFallback(ai: any, params: any) {
           if (fallbackParams.config.tools.length === 0) delete fallbackParams.config.tools;
         }
       }
-      // Retry without tools
       return await ai.models.generateContent(fallbackParams);
     }
     throw error;
@@ -169,7 +184,7 @@ export const fetchRealTimeIntelligence = async (user: User, type: string, option
       break;
 
     case 'social':
-      prompt = `Assess pulse of ${user.companyName}.`;
+      prompt = `Perform a high-fidelity social intelligence audit for ${user.companyName}. Analyze our key institutional profiles and identify engagement movements. List primary competitor social footprints and derive strategic signals (Threats, Strike Zones, Weaknesses, Strengths).`;
       responseSchema = {
         type: Type.OBJECT,
         properties: {
@@ -235,13 +250,33 @@ export const searchBusinessDatabase = async (query: string) => {
 
 export const analyzeBusinessWebsite = async (url: string) => {
   const ai = getClient();
-  const config: any = { responseMimeType: "application/json" };
+  const config: any = { 
+    responseMimeType: "application/json",
+    responseSchema: {
+      type: Type.OBJECT,
+      properties: {
+        companyName: { type: Type.STRING },
+        industry: { type: Type.STRING, description: "Select from: Technology, Financial Services, Healthcare, Retail, Manufacturing, Consulting, Professional Services, Energy, Logistics" },
+        subIndustry: { type: Type.STRING },
+        businessModel: { type: Type.STRING, description: "Select from: SaaS, Services, Ecommerce, Marketplace, Manufacturing, Hybrid" },
+        customerType: { type: Type.STRING, description: "Select from: B2B, B2C, Hybrid, B2G" },
+        marketScope: { type: Type.STRING, description: "Select from: Global, Regional, Local" },
+        growthRegions: { type: Type.ARRAY, items: { type: Type.STRING } },
+        summary: { type: Type.STRING },
+        primaryGoal: { type: Type.STRING },
+        competitiveIntensity: { type: Type.STRING, description: "Select from: Low, Medium, High" },
+        pricingModel: { type: Type.STRING }
+      },
+      required: ['companyName', 'industry', 'businessModel', 'summary']
+    }
+  };
+  
   if (!isSearchToolDisabled) config.tools = [{ googleSearch: {} }];
 
   try {
     const response = await generateWithFallback(ai, {
       model: 'gemini-3-flash-preview',
-      contents: `Audit the website ${url}. Return JSON: { "summary": "...", "targetMarket": "...", "keyOfferings": [] }`,
+      contents: `Audit the website ${url}. Extract all strategic metadata for registration. If info is missing, use logical industry defaults. Return Strictly JSON.`,
       config
     });
     return parseJSON(response.text || "{}") || {};
@@ -283,8 +318,10 @@ export const generateChatResponse = async function* (history: Message[], current
     for await (const chunk of stream) { yield { text: chunk.text }; }
   } catch (error: any) {
     const errStr = JSON.stringify(error);
-    if (errStr.includes("429") || errStr.includes("RESOURCE_EXHAUSTED")) {
-      console.warn("Chat Quota reached. Disabling search for session.");
+    const isQuotaError = errStr.includes("429") || errStr.includes("RESOURCE_EXHAUSTED");
+    const isRpcError = errStr.includes("Rpc failed") || errStr.includes("xhr error");
+
+    if (isQuotaError || isRpcError) {
       isSearchToolDisabled = true;
       delete config.tools;
       const stream = await ai.models.generateContentStream({ model: 'gemini-3-pro-preview', contents, config });
@@ -316,7 +353,7 @@ export const generateStrategicReport = async (user: User): Promise<StrategicRepo
   });
   
   const raw = parseJSON(response.text || "{}") || {};
-  const report: StrategicReport = {
+  return {
     id: raw.id || Date.now().toString(),
     title: raw.title || "Strategic Brief",
     date: raw.date || new Date().toLocaleDateString(),
@@ -326,7 +363,6 @@ export const generateStrategicReport = async (user: User): Promise<StrategicRepo
     content: raw.content || "Content generation failed.",
     companiesInvolved: raw.companiesInvolved || []
   };
-  return report;
 };
 
 export const generateMarketingCampaign = async (user: User, prompt: string): Promise<MarketingAsset[]> => {

@@ -287,7 +287,7 @@ export const Dashboard: React.FC<{ user: User, onLogout: () => void, onUpdateUse
           </div>
         </div>
         <div className="mt-auto pt-10 border-t border-slate-50">
-          <SidebarItem icon={Settings} label="DNA" active={activeTab === 'dna'} onClick={() => setActiveTab('dna'} collapsed={isSidebarCollapsed} />
+          <SidebarItem icon={Settings} label="DNA" active={activeTab === 'dna'} onClick={() => setActiveTab('dna')} collapsed={isSidebarCollapsed} />
           <SidebarItem icon={LogOut} label="Exit" onClick={onLogout} collapsed={isSidebarCollapsed} />
         </div>
       </aside>
