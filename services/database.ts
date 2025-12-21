@@ -10,15 +10,12 @@ const KEYS = {
   MARKETING: 'consult_ai_db_marketing'
 };
 
-const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-
 const safeParse = <T>(key: string, defaultVal: T): T => {
   try {
     const item = localStorage.getItem(key);
     if (!item) return defaultVal;
     return JSON.parse(item);
   } catch (e) {
-    console.error(`DB Error (${key}):`, e);
     return defaultVal;
   }
 };
@@ -27,47 +24,30 @@ const safeSave = (key: string, data: any) => {
   try {
     localStorage.setItem(key, JSON.stringify(data));
   } catch (e) {
-    console.error(`DB Save Error (${key}):`, e);
+    console.error("DB Save Failed", e);
   }
 };
 
 export const db = {
   auth: {
     async register(user: User, password: string): Promise<User> {
-      await delay(1000);
       const users = safeParse<Record<string, { user: User; passwordHash: string }>>(KEYS.USERS, {});
-      if (users[user.email]) throw new Error("Entity already registered.");
+      if (users[user.email]) throw new Error("Entity already exists.");
       users[user.email] = { user, passwordHash: btoa(password) };
       safeSave(KEYS.USERS, users);
       this.setSession(user);
       return user;
     },
     async login(email: string, password: string): Promise<User> {
-      await delay(1000);
       const users = safeParse<Record<string, { user: User; passwordHash: string }>>(KEYS.USERS, {});
       const entry = users[email];
-      if (!entry || entry.passwordHash !== btoa(password)) throw new Error("Invalid credentials.");
+      if (!entry || entry.passwordHash !== btoa(password)) throw new Error("Access Denied: Invalid Credentials.");
       this.setSession(entry.user);
       return entry.user;
     },
-    async logout() { 
-      localStorage.removeItem(KEYS.SESSION); 
-    },
-    getSession(): User | null { 
-      return safeParse<User | null>(KEYS.SESSION, null); 
-    },
-    setSession(user: User) { 
-      safeSave(KEYS.SESSION, user); 
-    },
-    async updateProfile(user: User): Promise<User> {
-      const users = safeParse<Record<string, { user: User; passwordHash: string }>>(KEYS.USERS, {});
-      if (users[user.email]) {
-        users[user.email].user = user;
-        safeSave(KEYS.USERS, users);
-        this.setSession(user);
-      }
-      return user;
-    }
+    async logout() { localStorage.removeItem(KEYS.SESSION); },
+    getSession(): User | null { return safeParse<User | null>(KEYS.SESSION, null); },
+    setSession(user: User) { safeSave(KEYS.SESSION, user); }
   },
   projects: {
     async list(userId: string): Promise<Project[]> {
@@ -80,14 +60,6 @@ export const db = {
       userProjects.unshift(project);
       all[userId] = userProjects;
       safeSave(KEYS.PROJECTS, all);
-      return project;
-    },
-    async update(userId: string, project: Project): Promise<Project> {
-      const all = safeParse<Record<string, Project[]>>(KEYS.PROJECTS, {});
-      if (all[userId]) {
-        all[userId] = all[userId].map(p => p.id === project.id ? project : p);
-        safeSave(KEYS.PROJECTS, all);
-      }
       return project;
     },
     async delete(userId: string, projectId: string) {
@@ -113,7 +85,6 @@ export const db = {
     async saveMarketingAssets(userId: string, assets: MarketingAsset[]) {
       const all = safeParse<Record<string, MarketingAsset[]>>(KEYS.MARKETING, {});
       const userAssets = all[userId] || [];
-      // Combine and prevent duplicates if IDs match
       const combined = [...assets, ...userAssets];
       const unique = Array.from(new Map(combined.map(item => [item.id, item])).values());
       all[userId] = unique;

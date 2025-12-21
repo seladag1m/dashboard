@@ -97,27 +97,30 @@ export const AuthPage: React.FC<AuthPageProps> = ({ type, onNavigate, onLogin })
     setStatusMessage("Extracting Strategic DNA...");
     try {
       const analysis = await analyzeBusinessWebsite(url);
-      if (analysis) {
+      if (analysis && analysis.companyName) {
         setForm(prev => ({
           ...prev,
           companyName: analysis.companyName || prev.companyName,
-          industry: INDUSTRIES.includes(analysis.industry) ? analysis.industry : prev.industry,
+          industry: INDUSTRIES.find(i => i.toLowerCase() === analysis.industry?.toLowerCase()) || prev.industry,
           subIndustry: analysis.subIndustry || prev.subIndustry,
-          businessModel: MODELS.includes(analysis.businessModel) ? analysis.businessModel as BusinessModel : prev.businessModel,
-          customerType: CUSTOMER_TYPES.includes(analysis.customerType) ? analysis.customerType as CustomerType : prev.customerType,
-          marketScope: ['Global', 'Regional', 'Local'].includes(analysis.marketScope) ? analysis.marketScope as any : prev.marketScope,
+          businessModel: MODELS.find(m => m.toLowerCase() === analysis.businessModel?.toLowerCase()) || prev.businessModel,
+          customerType: CUSTOMER_TYPES.find(c => c.toLowerCase() === analysis.customerType?.toLowerCase()) || prev.customerType,
+          marketScope: analysis.marketScope || prev.marketScope,
           growthRegions: analysis.growthRegions || prev.growthRegions,
           productSummary: analysis.summary || prev.productSummary,
           primaryGoal: analysis.primaryGoal || prev.primaryGoal,
-          competitiveIntensity: ['Low', 'Medium', 'High'].includes(analysis.competitiveIntensity) ? analysis.competitiveIntensity as any : prev.competitiveIntensity,
+          competitiveIntensity: analysis.competitiveIntensity || prev.competitiveIntensity,
           pricingModel: analysis.pricingModel || prev.pricingModel
         }));
         setStatusMessage("Institutional intelligence synced.");
         setTimeout(() => setStatusMessage(null), 3000);
+      } else {
+        setStatusMessage("Partial DNA match. Manual adjustments recommended.");
+        setTimeout(() => setStatusMessage(null), 3000);
       }
     } catch (e) {
       console.warn("Website analysis failed", e);
-      setStatusMessage("Unable to extract DNA. Manual input required.");
+      setStatusMessage("Unable to extract DNA. Please input manually.");
       setTimeout(() => setStatusMessage(null), 3000);
     } finally {
       setIsAiProcessing(false);
