@@ -18,16 +18,24 @@ const App: React.FC = () => {
     const init = async () => {
       try {
         const session = db.auth.getSession();
+        
+        // Clean up legacy sessions without mandatory DNA context
+        if (session && (!session.dna || !session.dna.industry)) {
+          console.warn("Legacy session detected. Clearing to refresh Business DNA.");
+          await db.auth.logout();
+          setRoute(AppRoute.LOGIN);
+          return;
+        }
+
         if (session) {
           setUser(session);
-          setRoute(AppRoute.CHAT); // Authenticated -> Dashboard
+          setRoute(AppRoute.DASHBOARD); // Corrected to use DASHBOARD instead of CHAT
         } else {
           setRoute(AppRoute.LOGIN);
         }
       } catch (e) {
         console.error("Session init error", e);
       } finally {
-        // Smooth transition out of loading
         setTimeout(() => setIsInitializing(false), 800);
       }
     };
@@ -36,7 +44,7 @@ const App: React.FC = () => {
 
   const handleLogin = (userData: User) => {
     setUser(userData);
-    setRoute(AppRoute.CHAT);
+    setRoute(AppRoute.DASHBOARD); // Corrected to use DASHBOARD
   };
 
   const handleLogout = async () => {
@@ -93,7 +101,6 @@ const App: React.FC = () => {
     <Dashboard 
       user={user} 
       onLogout={handleLogout} 
-      onUpdateUser={handleUpdateUser} 
     />
   );
 };

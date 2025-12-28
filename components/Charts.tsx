@@ -39,18 +39,22 @@ export const RealMapWidget: React.FC<{ markers?: any[] }> = ({ markers = [] }) =
     layersRef.current.forEach(layer => map.removeLayer(layer));
     layersRef.current = [];
     const icon = L.divIcon({ className: 'custom-pin', html: `<div class="w-3 h-3 bg-blue-600 rounded-full ring-4 ring-blue-500/20 border border-white"></div>`, iconSize: [12, 12] });
-    markers.forEach(m => {
-      const marker = L.marker([m.lat, m.lng], { icon }).addTo(map).bindPopup(`<div class="text-xs font-bold p-1">${m.title}</div>`);
-      layersRef.current.push(marker);
+    
+    const validMarkers = Array.isArray(markers) ? markers : [];
+    validMarkers.forEach(m => {
+      if (m.lat && m.lng) {
+        const marker = L.marker([m.lat, m.lng], { icon }).addTo(map).bindPopup(`<div class="text-xs font-bold p-1">${m.title}</div>`);
+        layersRef.current.push(marker);
+      }
     });
-    if (markers.length > 0) map.fitBounds(markers.map(m => [m.lat, m.lng]), { padding: [40, 40], maxZoom: 6 });
+    if (validMarkers.length > 0) map.fitBounds(validMarkers.map(m => [m.lat, m.lng]), { padding: [40, 40], maxZoom: 6 });
   }, [markers]);
 
   return <div ref={mapContainerRef} className="w-full h-full" />;
 };
 
 export const PorterFiveForces: React.FC<{ data: any[] }> = ({ data }) => {
-  const chartData = data && data.length > 0 ? data : [
+  const chartData = Array.isArray(data) && data.length > 0 ? data : [
     { factor: 'Rivalry', score: 85 },
     { factor: 'Entrants', score: 40 },
     { factor: 'Suppliers', score: 30 },
@@ -75,7 +79,7 @@ export const PorterFiveForces: React.FC<{ data: any[] }> = ({ data }) => {
 };
 
 export const MarketBubbleMatrix: React.FC<{ data: any[] }> = ({ data }) => {
-  const chartData = data || [];
+  const chartData = Array.isArray(data) ? data : [];
   return (
     <ResponsiveContainer width="100%" height="100%">
       <ScatterChart margin={{ top: 20, right: 30, bottom: 20, left: 0 }}>
@@ -93,7 +97,7 @@ export const MarketBubbleMatrix: React.FC<{ data: any[] }> = ({ data }) => {
 };
 
 export const SalesAreaChart: React.FC<{ data?: any[] }> = ({ data }) => {
-  const chartData = data && data.length > 0 ? data : Array.from({ length: 6 }, (_, i) => ({ m: `P${i}`, v: 10 + Math.random() * 90 }));
+  const chartData = Array.isArray(data) && data.length > 0 ? data : Array.from({ length: 6 }, (_, i) => ({ m: `P${i}`, v: 10 + Math.random() * 90 }));
   return (
     <ResponsiveContainer width="100%" height="100%">
       <AreaChart data={chartData}>

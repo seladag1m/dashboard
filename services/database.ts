@@ -1,98 +1,170 @@
 
-import { User, Project, StrategicReport, MarketingAsset } from '../types';
+import { User, Signal, MarketingAsset, StrategicReport, Project, Message } from "../types";
 
-const KEYS = {
-  USERS: 'consult_ai_db_users',
-  SESSION: 'consult_ai_db_session',
-  PROJECTS: 'consult_ai_db_projects',
-  CHATS: 'consult_ai_db_chats',
-  REPORTS: 'consult_ai_db_reports',
-  MARKETING: 'consult_ai_db_marketing'
+const DB_KEY = "consult_ai_vault";
+
+export interface Consultation {
+  id: string;
+  userId: string;
+  title: string;
+  timestamp: string;
+  messages: { role: 'user' | 'model'; content: string }[];
+}
+
+interface Vault {
+  users: Record<string, { user: User; pass: string }>;
+  session: string | null;
+  signals: Signal[];
+  assets: MarketingAsset[];
+  reports: StrategicReport[];
+  projects: Project[];
+  consultations: Consultation[];
+}
+
+const getVault = (): Vault => {
+  const data = localStorage.getItem(DB_KEY);
+  return data ? JSON.parse(data) : { users: {}, session: null, signals: [], assets: [], reports: [], projects: [], consultations: [] };
 };
 
-const safeParse = <T>(key: string, defaultVal: T): T => {
-  try {
-    const item = localStorage.getItem(key);
-    if (!item) return defaultVal;
-    return JSON.parse(item);
-  } catch (e) {
-    return defaultVal;
-  }
-};
-
-const safeSave = (key: string, data: any) => {
-  try {
-    localStorage.setItem(key, JSON.stringify(data));
-  } catch (e) {
-    console.error("DB Save Failed", e);
-  }
+const saveVault = (vault: Vault) => {
+  localStorage.setItem(DB_KEY, JSON.stringify(vault));
 };
 
 export const db = {
   auth: {
-    async register(user: User, password: string): Promise<User> {
-      const users = safeParse<Record<string, { user: User; passwordHash: string }>>(KEYS.USERS, {});
-      if (users[user.email]) throw new Error("Entity already exists.");
-      users[user.email] = { user, passwordHash: btoa(password) };
-      safeSave(KEYS.USERS, users);
-      this.setSession(user);
-      return user;
+    register: (user: User, pass: string) => {
+      const v = getVault();
+      v.users[user.email] = { user, pass };
+      v.session = user.id;
+      saveVault(v);
     },
-    async login(email: string, password: string): Promise<User> {
-      const users = safeParse<Record<string, { user: User; passwordHash: string }>>(KEYS.USERS, {});
-      const entry = users[email];
-      if (!entry || entry.passwordHash !== btoa(password)) throw new Error("Access Denied: Invalid Credentials.");
-      this.setSession(entry.user);
-      return entry.user;
+    login: (email: string, pass: string): User | null => {
+      const v = getVault();
+      const entry = v.users[email];
+      if (entry && entry.pass === pass) {
+        v.session = entry.user.id;
+        saveVault(v);
+        return entry.user;
+      }
+      return null;
     },
-    async logout() { localStorage.removeItem(KEYS.SESSION); },
-    getSession(): User | null { return safeParse<User | null>(KEYS.SESSION, null); },
-    setSession(user: User) { safeSave(KEYS.SESSION, user); }
-  },
-  projects: {
-    async list(userId: string): Promise<Project[]> {
-      const all = safeParse<Record<string, Project[]>>(KEYS.PROJECTS, {});
-      return all[userId] || [];
+    logout: () => {
+      const v = getVault();
+      v.session = null;
+      saveVault(v);
     },
-    async create(userId: string, project: Project): Promise<Project> {
-      const all = safeParse<Record<string, Project[]>>(KEYS.PROJECTS, {});
-      const userProjects = all[userId] || [];
-      userProjects.unshift(project);
-      all[userId] = userProjects;
-      safeSave(KEYS.PROJECTS, all);
-      return project;
+    getCurrentUser: (): User | null => {
+      const v = getVault();
+      if (!v.session) return null;
+      return Object.values(v.users).find(u => u.user.id === v.session)?.user || null;
     },
-    async delete(userId: string, projectId: string) {
-      const all = safeParse<Record<string, Project[]>>(KEYS.PROJECTS, {});
-      if (all[userId]) {
-        all[userId] = all[userId].filter(p => p.id !== projectId);
-        safeSave(KEYS.PROJECTS, all);
+    getSession: (): User | null => {
+      const v = getVault();
+      if (!v.session) return null;
+      const userEntry = Object.values(v.users).find(u => u.user.id === v.session);
+      return userEntry ? userEntry.user : null;
+    },
+    setSession: (user: User) => {
+      const v = getVault();
+      v.session = user.id;
+      saveVault(v);
+    },
+    updateUser: (user: User) => {
+      const v = getVault();
+      if (v.users[user.email]) {
+        v.users[user.email].user = user;
+        saveVault(v);
       }
     }
   },
-  artifacts: {
-    async saveReport(userId: string, report: StrategicReport) {
-      const all = safeParse<Record<string, StrategicReport[]>>(KEYS.REPORTS, {});
-      const userReports = all[userId] || [];
-      userReports.unshift(report);
-      all[userId] = userReports;
-      safeSave(KEYS.REPORTS, all);
+  projects: {
+    list: async (userId: string): Promise<Project[]> => {
+      const v = getVault();
+      return v.projects || [];
     },
-    async listReports(userId: string): Promise<StrategicReport[]> {
-      const all = safeParse<Record<string, StrategicReport[]>>(KEYS.REPORTS, {});
-      return all[userId] || [];
+    create: async (userId: string, project: Project) => {
+      const v = getVault();
+      if (!v.projects) v.projects = [];
+      v.projects.unshift(project);
+      saveVault(v);
     },
-    async saveMarketingAssets(userId: string, assets: MarketingAsset[]) {
-      const all = safeParse<Record<string, MarketingAsset[]>>(KEYS.MARKETING, {});
-      const userAssets = all[userId] || [];
-      const combined = [...assets, ...userAssets];
-      const unique = Array.from(new Map(combined.map(item => [item.id, item])).values());
-      all[userId] = unique;
-      safeSave(KEYS.MARKETING, all);
+    update: async (userId: string, project: Project) => {
+      const v = getVault();
+      v.projects = v.projects?.map(p => p.id === project.id ? project : p) || [];
+      saveVault(v);
     },
-    async listMarketingAssets(userId: string): Promise<MarketingAsset[]> {
-      const all = safeParse<Record<string, MarketingAsset[]>>(KEYS.MARKETING, {});
-      return all[userId] || [];
+    delete: async (userId: string, projectId: string) => {
+      const v = getVault();
+      v.projects = v.projects?.filter(p => p.id !== projectId) || [];
+      saveVault(v);
     }
+  },
+  consultations: {
+    list: (userId: string): Consultation[] => {
+      const v = getVault();
+      return (v.consultations || []).filter(c => c.userId === userId);
+    },
+    save: (consultation: Consultation) => {
+      const v = getVault();
+      if (!v.consultations) v.consultations = [];
+      const index = v.consultations.findIndex(c => c.id === consultation.id);
+      if (index >= 0) {
+        v.consultations[index] = consultation;
+      } else {
+        v.consultations.unshift(consultation);
+      }
+      saveVault(v);
+    },
+    delete: (id: string) => {
+      const v = getVault();
+      v.consultations = (v.consultations || []).filter(c => c.id !== id);
+      saveVault(v);
+    }
+  },
+  artifacts: {
+    listMarketingAssets: async (userId: string): Promise<MarketingAsset[]> => {
+      const v = getVault();
+      return v.assets || [];
+    },
+    saveMarketingAssets: async (userId: string, assets: MarketingAsset[]) => {
+      const v = getVault();
+      if (!v.assets) v.assets = [];
+      v.assets = [...assets, ...v.assets];
+      saveVault(v);
+    },
+    listReports: async (userId: string): Promise<StrategicReport[]> => {
+      const v = getVault();
+      return v.reports || [];
+    },
+    saveReport: async (userId: string, report: StrategicReport) => {
+      const v = getVault();
+      if (!v.reports) v.reports = [];
+      v.reports.unshift(report);
+      saveVault(v);
+    }
+  },
+  signals: {
+    save: (signals: Signal[]) => {
+      const v = getVault();
+      v.signals = signals;
+      saveVault(v);
+    },
+    list: () => getVault().signals
+  },
+  assets: {
+    save: (asset: MarketingAsset) => {
+      const v = getVault();
+      v.assets.unshift(asset);
+      saveVault(v);
+    },
+    list: () => getVault().assets
+  },
+  reports: {
+    save: (report: StrategicReport) => {
+      const v = getVault();
+      v.reports.unshift(report);
+      saveVault(v);
+    },
+    list: () => getVault().reports
   }
 };

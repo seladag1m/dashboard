@@ -7,7 +7,8 @@
     <title>CONSULT AI | Strategic Intelligence Engine</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://api.fontshare.com/v2/css?f[]=satoshi@500,700,900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=Source+Serif+4:ital,wght@0,400;1,400&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
     
     <script src="https://cdn.tailwindcss.com"></script>
@@ -23,8 +24,10 @@
               }
             },
             fontFamily: {
-              sans: ['Inter', 'system-ui', 'sans-serif'],
-              serif: ['Instrument Serif', 'Georgia', 'serif'],
+              satoshi: ['Satoshi', 'sans-serif'],
+              inter: ['Inter', 'sans-serif'],
+              mono: ['IBM Plex Mono', 'monospace'],
+              'source-serif': ['Source Serif 4', 'serif'],
             },
             borderRadius: {
               '3xl': '24px',
@@ -68,7 +71,7 @@
 }
 </script>
     <style>
-      body { background-color: #F3F5F7; }
+      body { background-color: #F3F5F7; font-family: 'Inter', sans-serif; font-weight: 400; }
       ::-webkit-scrollbar { width: 5px; }
       ::-webkit-scrollbar-thumb { background: #E2E8F0; border-radius: 10px; }
       .sidebar-item-active { background-color: #246BFD; color: white; }

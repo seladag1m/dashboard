@@ -1,4 +1,5 @@
 
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, Sparkles, User, Bot, Loader2, X, Target, Info, ShieldCheck, Paperclip, FileText, Image as ImageIcon, Trash2 } from 'lucide-react';
 import { generateChatResponse } from '../services/gemini';
@@ -116,7 +117,7 @@ export const ChatPanel: React.FC<{ user: UserType, project?: Project, externalTr
       id: Date.now().toString(), 
       role: 'user', 
       content: text, 
-      timestamp: new Date(),
+      timestamp: new Date().toISOString(),
       attachments: attachments.length > 0 ? [...attachments] : undefined
     };
     
@@ -126,12 +127,11 @@ export const ChatPanel: React.FC<{ user: UserType, project?: Project, externalTr
     setLoading(true);
 
     const aiMsgId = (Date.now() + 1).toString();
-    setMessages(prev => [...prev, { id: aiMsgId, role: 'model', content: '', timestamp: new Date() }]);
+    setMessages(prev => [...prev, { id: aiMsgId, role: 'model', content: '', timestamp: new Date().toISOString() }]);
 
     let fullContent = "";
     try {
       // Pass the current message and history to the service.
-      // History in the service already handles history truncation.
       const stream = await generateChatResponse([...messages, userMsg], text, user, project);
       for await (const chunk of stream) {
         fullContent += chunk.text;

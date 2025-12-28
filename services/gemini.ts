@@ -1,274 +1,220 @@
 
 import { GoogleGenAI, Type, Modality } from "@google/genai";
-import { Message, User, StrategicReport, MarketingAsset, Project } from "../types";
+import { User, BusinessDNA, Signal, StrategicReport, MarketingAsset, Project, Message } from "../types";
 
-// This flag allows us to gracefully disable tools if the deployment environment rejects them
-let isSearchToolDisabled = false;
+const buildSystemInstruction = (dna: BusinessDNA) => `
+You are Consult AI, the Elite Strategic Intelligence Engine for ${dna.companyName}.
+Your responses are personalized based on the following BUSINESS DNA:
+- Industry: ${dna.industry}
+- Business Model: ${dna.businessModel}
+- Target Customer: ${dna.customerSegment}
+- Markets: ${dna.operatingMarkets.join(", ")}
+- Strategic Goals: ${dna.strategicGoals.join(", ")}
+- Growth Stage: ${dna.stage}
+- Market Context: ${dna.enrichedData?.marketContext || 'Scanning...'}
 
-/**
- * Strictly adheres to @google/genai initialization guidelines.
- * Uses process.env.API_KEY exclusively.
- */
-const getClient = () => {
-  const key = process.env.API_KEY;
-  if (!key) throw new Error("Strategic Engine Offline: API_KEY environment variable is missing in deployment.");
-  return new GoogleGenAI({ apiKey: key });
-};
+RULES:
+1. NEVER be chatty. Use an executive, high-stakes tone.
+2. Structure output: CONTEXT -> INSIGHT -> RECOMMENDATION -> RISK.
+3. Every suggestion must leverage the specific industry and market context.
+4. If asked about rivals, refer to: ${dna.manualCompetitors.join(", ")}.
+`;
 
-/**
- * Cleans and parses JSON from the model, handling grounding citations
- * and thinking blocks that often occur in production.
- */
-const parseStrictJSON = (text: string) => {
-  if (!text) return null;
-  const cleanedText = text
-    .replace(/\[\d+\]/g, '') // Remove grounding citations [1], [2], etc.
-    .replace(/<thinking>[\s\S]*?<\/thinking>/gi, '') // Remove thinking blocks
-    .replace(/```json/gi, '')
-    .replace(/```/g, '')
-    .trim();
+export const scanAndEnrichDNA = async (dna: BusinessDNA): Promise<any> => {
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const prompt = `Perform a high-stakes institutional audit of the website: ${dna.website}. 
+  Search the web specifically for "${dna.companyName}" to gather precise data points.
+  Identify: 
+  1. Primary Industry (e.g., Fintech, Healthcare).
+  2. Business Model (SaaS, Services, Ecommerce, Marketplace, Manufacturing).
+  3. Primary Customer Type (B2B, B2C, Hybrid, B2G).
+  4. Top 3-5 Competitors/Rivals found on the web.
+  5. Likely Growth Stage (Early, Scaling, Mature).
+  6. Strategic Context summary (1-2 sentences).
+  7. Verified Social Media Handles (LinkedIn URL, Twitter/X handle, Instagram handle).
   
-  try {
-    return JSON.parse(cleanedText);
-  } catch (err) {
-    const jsonMatch = cleanedText.match(/(\{[\s\S]*\}|\[[\s\S]*\])/);
-    if (jsonMatch) {
-      try {
-        return JSON.parse(jsonMatch[0].replace(/,\s*([\]}])/g, '$1'));
-      } catch (innerE) {
-        return null;
-      }
+  Return strictly valid JSON: 
+  { 
+    "industry": "string",
+    "businessModel": "string",
+    "customerSegment": "string",
+    "rivals": ["string"],
+    "stage": "string",
+    "marketContext": "string",
+    "competitorIntel": "string",
+    "socialLinks": {
+      "linkedin": "string",
+      "twitter": "string",
+      "instagram": "string"
     }
-  }
-  return null;
-};
+  }`;
 
-/**
- * Hardened wrapper for generateContent.
- * If a request fails due to tool restrictions (common in prod), it retries with internal reasoning.
- */
-async function generateWithHardenedFallback(params: any) {
-  const ai = getClient();
-  const hasSearch = params.config?.tools?.some((t: any) => t.googleSearch);
-  
-  if (isSearchToolDisabled && hasSearch) {
-    params.config = { ...params.config };
-    params.config.tools = params.config.tools.filter((t: any) => !t.googleSearch);
-    if (params.config.tools.length === 0) delete params.config.tools;
-  }
-
-  try {
-    const response = await ai.models.generateContent(params);
-    return response;
-  } catch (error: any) {
-    const errStr = (error?.message || JSON.stringify(error)).toLowerCase();
-    
-    // Check for region/quota/environment specific tool failures
-    if (errStr.includes("not found") || errStr.includes("500") || errStr.includes("429") || errStr.includes("xhr")) {
-      console.warn("Deployment Alert: Grounding tool failed. Switching to internal reasoning protocol.");
-      if (hasSearch) isSearchToolDisabled = true;
-
-      const fallbackParams = { ...params };
-      if (fallbackParams.config?.tools) {
-        fallbackParams.config.tools = fallbackParams.config.tools.filter((t: any) => !t.googleSearch);
-        if (fallbackParams.config.tools.length === 0) delete fallbackParams.config.tools;
-      }
-      
-      const aiFallback = getClient();
-      return await aiFallback.models.generateContent(fallbackParams);
-    }
-    throw error;
-  }
-}
-
-const buildExecutiveContext = (user: User, project?: Project) => {
-  return `
-    ROLE: Chief Strategic Advisor for ${user.companyName} (${user.industry}).
-    DNA: ${user.dna.businessModel} model, Market Scope: ${user.dna.marketScope}.
-    MISSION: Provide executive-level data-driven intelligence.
-    TONE: Premium, precise, and authoritative.
-    PROJECT: ${project ? `Mandate: ${project.name}. Goal: ${project.goal}` : 'General Oversight'}.
-  `;
-};
-
-export const fetchRealTimeIntelligence = async (user: User, type: string) => {
-  const context = buildExecutiveContext(user);
-  let prompt = '';
-  let responseSchema: any = null;
-
-  switch (type) {
-    case 'overview':
-      prompt = `${context}\nProvide high-level command status. Return JSON.`;
-      responseSchema = {
-        type: Type.OBJECT,
-        properties: {
-          realityBar: { 
-            type: Type.OBJECT, 
-            properties: { 
-              score: { type: Type.NUMBER }, 
-              insight: { type: Type.STRING }, 
-              confidence: { type: Type.STRING } 
-            }, 
-            required: ['score', 'insight', 'confidence'] 
-          },
-          momentum: { 
-            type: Type.ARRAY, 
-            items: { type: Type.OBJECT, properties: { m: { type: Type.STRING }, v: { type: Type.NUMBER } } } 
-          },
-          alerts: { 
-            type: Type.ARRAY, 
-            items: { 
-              type: Type.OBJECT, 
-              properties: { 
-                category: { type: Type.STRING }, 
-                title: { type: Type.STRING }, 
-                desc: { type: Type.STRING }, 
-                strategicMove: { type: Type.STRING } 
-              } 
-            } 
-          }
-        }
-      };
-      break;
-    case 'competitors':
-      prompt = `${context}\nIdentify 3 rivals with their WEBSITE URL and location. Return JSON.`;
-      responseSchema = {
-        type: Type.OBJECT,
-        properties: {
-          competitors: {
-            type: Type.ARRAY,
-            items: {
-              type: Type.OBJECT,
-              properties: {
-                name: { type: Type.STRING }, 
-                url: { type: Type.STRING }, 
-                location: { type: Type.STRING }, 
-                latitude: { type: Type.STRING }, 
-                longitude: { type: Type.STRING },
-                swot: { 
-                  type: Type.OBJECT, 
-                  properties: { 
-                    strengths: { type: Type.ARRAY, items: { type: Type.STRING } }, 
-                    weaknesses: { type: Type.ARRAY, items: { type: Type.STRING } }
-                  } 
-                }
-              }
-            }
-          }
-        }
-      };
-      break;
-    default:
-      prompt = `${context}\nGenerate market data for ${type}. Return JSON.`;
-  }
-
-  const res = await generateWithHardenedFallback({
+  const response = await ai.models.generateContent({
     model: 'gemini-3-flash-preview',
     contents: prompt,
     config: { 
-      responseMimeType: "application/json", 
-      responseSchema, 
-      tools: isSearchToolDisabled ? [] : [{ googleSearch: {} }] 
+      tools: [{ googleSearch: {} }],
+      responseMimeType: "application/json"
     }
   });
-  return parseStrictJSON(res.text) || {};
+
+  return JSON.parse(response.text || "{}");
 };
 
-export const generateChatResponse = async function* (history: Message[], currentMessage: string, user: User, project?: Project) {
-  const context = buildExecutiveContext(user, project);
-  const ai = getClient();
-  
-  const stream = await ai.models.generateContentStream({
-    model: 'gemini-3-pro-preview',
-    contents: history.slice(-10).map(m => ({ role: m.role, parts: [{ text: m.content }] })),
+export const fetchRealTimeIntelligence = async (user: User, type: 'competitors' | 'market' | 'alerts' | 'overview' | 'social') => {
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const promptMap = {
+    competitors: `Analyze active movements and strengths/weaknesses of rivals for ${user.companyName}. Return JSON: { competitors: [{name, url, location, latitude, longitude, swot: {strengths, weaknesses, opportunities, threats}}] }`,
+    market: `Analyze regional demand and market dynamics for ${user.companyName}. Return JSON: { matrix: [{x, y, z, sentiment}], porters: [{factor, score}], geoDemand: [{lat, lng, title}] }`,
+    social: `Analyze brand authority and social sentiment for ${user.companyName} and its rivals: ${user.dna.manualCompetitors.join(', ')}. 
+    Return JSON: { 
+      brand: { sentiment: {score, label}, analysis: {strengths:[], weaknesses:[], threats:[], strikeZones:[]} },
+      competitors: [{ name, sentiment: {score, label}, analysis: {strengths:[], weaknesses:[], threats:[], strikeZones:[]} }],
+      trends: [{m, v}] 
+    }`,
+    alerts: `Detect high-priority market anomalies or competitor threats for ${user.companyName}. Return JSON: { alerts: [{title, desc, category, strategicMove, time}] }`,
+    overview: `Provide a high-level system state summary for ${user.companyName}.`
+  };
+
+  const response = await ai.models.generateContent({
+    model: 'gemini-3-flash-preview',
+    contents: promptMap[type] || promptMap.overview,
     config: { 
-      systemInstruction: context, 
-      thinkingConfig: { thinkingBudget: 12000 } 
+      systemInstruction: buildSystemInstruction(user.dna),
+      tools: [{ googleSearch: {} }],
+      responseMimeType: "application/json"
     }
   });
-  
-  for await (const chunk of stream) {
-    yield { text: chunk.text };
-  }
+
+  return JSON.parse(response.text || "{}");
 };
 
 export const generateStrategicReport = async (user: User): Promise<StrategicReport> => {
-  const res = await generateWithHardenedFallback({
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const response = await ai.models.generateContent({
     model: 'gemini-3-pro-preview',
-    contents: `Draft a Board Manifesto for ${user.companyName}. Return JSON {title, summary, content}.`,
-    config: { 
-      responseMimeType: "application/json", 
-      thinkingConfig: { thinkingBudget: 16000 } 
+    contents: "Synthesize a comprehensive Board Briefing covering market trajectory, competitor encroachment, and tactical recommendations.",
+    config: {
+      systemInstruction: buildSystemInstruction(user.dna),
+      thinkingConfig: { thinkingBudget: 32768 },
+      tools: [{ googleSearch: {} }]
     }
   });
-  const raw = parseStrictJSON(res.text) || {};
+
   return {
-    id: `rep-${Date.now()}`,
-    title: raw.title || "Strategic Briefing",
+    id: Date.now().toString(),
+    title: "Executive Strategic Mandate",
     date: new Date().toLocaleDateString(),
-    type: 'Opportunity',
-    impactLevel: 'High',
-    summary: raw.summary || "Synthesizing mandate...",
-    content: raw.content || "Full report content unavailable.",
-    companiesInvolved: []
+    summary: "High-stakes synthesis of current market signals and institutional direction.",
+    content: response.text || "Report generation failed."
   };
 };
 
-export const generateMarketingCampaign = async (user: User, userPrompt: string): Promise<MarketingAsset[]> => {
-  const isVisual = /image|picture|photo|banner/i.test(userPrompt);
-
-  if (isVisual) {
-    const res = await generateWithHardenedFallback({
-      model: 'gemini-2.5-flash-image',
-      contents: `High-end commercial visual for ${user.companyName}. Concept: ${userPrompt}.`,
-      config: { imageConfig: { aspectRatio: "16:9" } }
-    });
-
-    let base64 = '';
-    for (const part of res.candidates[0].content.parts) {
-      if (part.inlineData) base64 = `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+export const generateMarketingCampaign = async (user: User, prompt: string, includeVisuals: boolean): Promise<MarketingAsset[]> => {
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const campaignRes = await ai.models.generateContent({
+    model: 'gemini-3-flash-preview',
+    contents: `Generate a market-ready campaign asset for: ${prompt}. Return JSON array of ONE asset: [{channel, title, content, tags, visualPrompt}]`,
+    config: { 
+      systemInstruction: buildSystemInstruction(user.dna),
+      responseMimeType: "application/json" 
     }
+  });
 
-    return [{
-      id: `img-${Date.now()}`,
-      channel: 'Ad',
-      title: 'Visual Prototype',
-      content: 'Vision Protocol synthesized asset.',
-      isImage: true,
-      imageData: base64,
-      tags: ['Visual', 'Strategic'],
-      status: 'Ready',
-      timestamp: new Date().toISOString()
-    }];
+  const assets: any[] = JSON.parse(campaignRes.text || "[]");
+  
+  if (includeVisuals && assets[0]) {
+    const freshAi = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const imgRes = await freshAi.models.generateContent({
+      model: 'gemini-2.5-flash-image',
+      contents: [{ text: `High-end, premium consulting aesthetic corporate marketing visual for ${user.companyName} (Industry: ${user.dna.industry}): ${assets[0].visualPrompt}. Clean, modern, professional.` }],
+      config: {
+        imageConfig: { aspectRatio: "16:9" }
+      }
+    });
+    
+    for (const part of imgRes.candidates[0].content.parts) {
+      if (part.inlineData) {
+        assets[0].imageData = `data:image/png;base64,${part.inlineData.data}`;
+      }
+    }
   }
 
-  const res = await generateWithHardenedFallback({
-    model: 'gemini-3-flash-preview',
-    contents: `${buildExecutiveContext(user)}\nDraft assets for: "${userPrompt}". Return JSON array.`,
-    config: { responseMimeType: "application/json" }
-  });
-  const assets = parseStrictJSON(res.text) || [];
-  return assets.map((a: any) => ({
+  return assets.map(a => ({
     ...a,
-    id: `ma-${Date.now()}-${Math.random()}`,
-    status: 'Ready',
-    timestamp: new Date().toISOString()
+    id: Date.now().toString(),
+    timestamp: new Date().toLocaleDateString()
   }));
 };
 
-export const analyzeBusinessWebsite = async (url: string) => {
-  const prompt = `Conduct institutional audit of ${url}. Respond ONLY with JSON: {companyName, industry, businessModel, summary, competitiveIntensity}.`;
-  try {
-    const res = await generateWithHardenedFallback({
-      model: 'gemini-3-flash-preview',
-      contents: prompt,
-      config: { 
-        responseMimeType: "application/json",
-        tools: isSearchToolDisabled ? [] : [{ googleSearch: {} }]
-      }
-    });
-    return parseStrictJSON(res.text);
-  } catch (e) {
-    return null;
+export const generateMarketingVideo = async (user: User, prompt: string, aspectRatio: '16:9' | '9:16'): Promise<MarketingAsset> => {
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  let operation = await ai.models.generateVideos({
+    model: 'veo-3.1-fast-generate-preview',
+    prompt: `A high-end cinematic corporate branding video for ${user.companyName} (${user.dna.industry}): ${prompt}. Ultra-clean, professional, premium motion graphics.`,
+    config: {
+      numberOfVideos: 1,
+      resolution: '1080p',
+      aspectRatio: aspectRatio
+    }
+  });
+
+  while (!operation.done) {
+    await new Promise(resolve => setTimeout(resolve, 10000));
+    const freshAi = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    operation = await freshAi.operations.getVideosOperation({ operation: operation });
   }
+
+  const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
+  const videoUrl = `${downloadLink}&key=${process.env.API_KEY}`;
+
+  return {
+    id: Date.now().toString(),
+    channel: 'Social Video',
+    title: 'Tactical Motion Asset',
+    content: prompt,
+    videoUrl: videoUrl,
+    timestamp: new Date().toLocaleDateString(),
+    tags: ['Motion', 'Premium', 'Cinematic'],
+    aspectRatio: aspectRatio
+  };
+};
+
+export const getExecutiveConsultation = async (user: User, query: string, history: any[] = []) => {
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const response = await ai.models.generateContent({
+    model: 'gemini-3-pro-preview',
+    contents: [
+      ...history.map(h => ({ role: h.role, parts: [{ text: h.content }] })),
+      { role: 'user', parts: [{ text: query }] }
+    ],
+    config: {
+      systemInstruction: buildSystemInstruction(user.dna),
+      thinkingConfig: { thinkingBudget: 15000 },
+      tools: [{ googleSearch: {} }]
+    }
+  });
+  return response.text;
+};
+
+export const generateChatResponse = async (history: Message[], currentMessage: string, user: User, project?: Project) => {
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  
+  const contents = history.map(m => ({
+    role: m.role,
+    parts: [{ text: m.content }]
+  }));
+
+  const systemInstruction = buildSystemInstruction(user.dna) + 
+    (project ? `\n\nCURRENT PROJECT FOCUS: ${project.name}\nObjective: ${project.objective}\nDescription: ${project.description}` : '');
+
+  return await ai.models.generateContentStream({
+    model: 'gemini-3-pro-preview',
+    contents: contents,
+    config: {
+      systemInstruction,
+      thinkingConfig: { thinkingBudget: 32768 },
+      tools: [{ googleSearch: {} }]
+    }
+  });
 };

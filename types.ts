@@ -1,53 +1,32 @@
 
-export type ConsultingField = 'Strategy' | 'Marketing' | 'Operations' | 'Finance' | 'Product';
-export type BusinessType = 'SME' | 'Startup' | 'Enterprise' | 'Freelancer' | 'Non-Profit';
-export type CompanySize = 'Solo (1)' | 'Startup (2-10)' | 'SME (11-50)' | 'Mid-Market (51-500)' | 'Enterprise (500+)';
-export type Region = 'North America' | 'Europe' | 'Asia Pacific' | 'LATAM' | 'MEA' | 'Global';
-export type CustomerType = 'B2B' | 'B2C' | 'Hybrid' | 'B2G';
-export type CompetitorPreference = 'Global' | 'Regional' | 'Specific Country';
 export type BusinessModel = 'SaaS' | 'Services' | 'Ecommerce' | 'Marketplace' | 'Hybrid' | 'Manufacturing';
-export type MarketIntensity = 'Low' | 'Medium' | 'High';
-export type ConfidenceLevel = 'Low' | 'Medium' | 'High';
+export type CompanySize = 'Solo (1)' | 'Startup (2-10)' | 'SME (11-50)' | 'Mid-Market (51-500)' | 'Enterprise (500+)';
+export type CustomerType = 'B2B' | 'B2C' | 'Hybrid' | 'B2G';
+export type GrowthStage = 'Early' | 'Scaling' | 'Mature' | 'At Risk';
+export type StrategicPriority = 'Growth' | 'Efficiency' | 'Expansion' | 'Survival' | 'Defense' | 'Authority';
 
-export interface StrategicPriority {
-  id: string;
-  label: string;
-  selected: boolean;
-}
-
-export interface CompanyDNA {
-  website?: string;
-  productSummary: string;
-  targetCustomer: CustomerType;
-  businessModel: BusinessModel;
+export interface BusinessDNA {
+  companyName: string;
   industry: string;
-  subIndustry?: string;
-  marketScope: 'Global' | 'Regional' | 'Local';
-  growthRegions: string[];
-  competitiveIntensity: MarketIntensity;
-  strategicPriorities: string[];
-  confidenceLevel: ConfidenceLevel;
-  pricingModel: string;
-  primaryGoal: string;
-  secondaryGoal?: string;
-  brandIdentity: {
-    tone: string;
-    colors: string;
-    vibe: string;
-  };
-  socialProfiles: {
+  businessModel: BusinessModel;
+  customerSegment: CustomerType;
+  operatingMarkets: string[];
+  size: CompanySize;
+  stage: GrowthStage;
+  strategicGoals: StrategicPriority[];
+  riskTolerance: 'Low' | 'Medium' | 'High';
+  manualCompetitors: string[];
+  website?: string;
+  socialLinks: {
     linkedin?: string;
     twitter?: string;
     instagram?: string;
   };
-  competitorPreference: CompetitorPreference;
-  challenges: string[];
-  permissions: {
-    allowWebScraping: boolean;
-    allowCompetitorAnalysis: boolean;
-    allowRealTimeAlerts: boolean;
+  enrichedData?: {
+    marketContext: string;
+    competitorIntel: string;
+    lastScan: string;
   };
-  lastAnalysisDate?: string;
 }
 
 export interface User {
@@ -55,12 +34,42 @@ export interface User {
   name: string;
   email: string;
   companyName: string;
-  industry: string;
-  size: CompanySize;
-  region: Region;
-  country: string;
-  dna: CompanyDNA;
-  language: string;
+  dna: BusinessDNA;
+}
+
+export interface Signal {
+  id: string;
+  type: 'Opportunity' | 'Threat' | 'Caution' | 'Strike Zone';
+  title: string;
+  description: string;
+  impact: 'High' | 'Medium' | 'Low';
+  timestamp: string;
+  strategicMove: string;
+  category?: string;
+  time?: string;
+  desc?: string;
+}
+
+export interface Project {
+  id: string;
+  name: string;
+  description: string;
+  budget: string;
+  timeline: string;
+  objective: string;
+  constraints: string[];
+  status: 'Active' | 'Paused' | 'Completed';
+  createdAt: string;
+  goal: string;
+  type: string;
+  timeframe: string;
+  audience: string;
+  files: ProjectFile[];
+  tasks: ProjectTask[];
+  kpis: any[];
+  intent: string;
+  lastActive: string;
+  templateId?: string;
 }
 
 export interface ProjectFile {
@@ -68,81 +77,64 @@ export interface ProjectFile {
   name: string;
   type: string;
   size: string;
-  content: string; 
   mimeType: string;
+  content: string;
 }
+
+export type TaskStatus = 'pending' | 'in-progress' | 'review' | 'completed';
+export type TaskPriority = 'low' | 'medium' | 'high' | 'critical';
 
 export interface ProjectTask {
   id: string;
   title: string;
   description?: string;
+  status: TaskStatus;
+  priority: TaskPriority;
+  category: string;
   dueDate?: string;
-  status: 'Pending' | 'In Progress' | 'Completed';
-}
-
-export interface Project {
-  id: string;
-  name: string;
-  type: string;
-  description: string;
-  goal: string;
-  timeframe: string;
-  audience: string;
-  budget: string;
-  website?: string;
-  kpis: string[];
-  intent: string;
-  files: ProjectFile[];
-  tasks: ProjectTask[];
-  createdAt: string;
-  lastActive: string;
-}
-
-export interface MarketingAsset {
-  id: string;
-  channel: 'Email' | 'LinkedIn' | 'Twitter' | 'Instagram' | 'Blog' | 'Ad';
-  title: string;
-  content: string; 
-  visualPrompt?: string; 
-  tags: string[];
-  status: 'Ready' | 'Draft' | 'Published';
-  timestamp: string;
-  isNew?: boolean;
-  isImage?: boolean;
-  imageData?: string;
 }
 
 export interface Message {
   id: string;
   role: 'user' | 'model';
   content: string;
-  timestamp: Date | string;
-  isError?: boolean;
-  artifact?: ArtifactData;
-  groundingMetadata?: any;
+  timestamp: string;
   attachments?: ProjectFile[];
+  artifact?: ArtifactData;
+  isError?: boolean;
+}
+
+export interface ArtifactData {
+  type: 'chart' | 'framework' | 'kpi' | 'image_request' | 'image';
+  title: string;
+  data: any;
+}
+
+export interface MarketingAsset {
+  id: string;
+  channel: 'Email' | 'LinkedIn' | 'Twitter' | 'Instagram' | 'Blog' | 'Social Video';
+  title: string;
+  content: string;
+  imageData?: string;
+  videoUrl?: string;
+  timestamp: string;
+  tags: string[];
+  aspectRatio?: '16:9' | '9:16';
+  visualPrompt?: string;
 }
 
 export interface StrategicReport {
   id: string;
   title: string;
   date: string;
-  type: 'Risk' | 'Opportunity' | 'Market Shift';
-  impactLevel: 'Critical' | 'High' | 'Medium' | 'Low';
   summary: string;
-  content: string; 
-  companiesInvolved: string[];
-}
-
-export type ArtifactType = 'chart' | 'framework' | 'kpi' | 'image_request' | 'image';
-export interface ArtifactData {
-  type: ArtifactType;
-  title: string;
-  data: any;
+  content: string;
 }
 
 export enum AppRoute {
+  LANDING = '/',
   LOGIN = '/login',
   REGISTER = '/register',
+  DASHBOARD = '/dashboard',
   CHAT = '/chat',
 }

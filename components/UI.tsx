@@ -3,7 +3,7 @@ import React from 'react';
 import { LucideIcon, Loader2, Search, X, ChevronDown } from 'lucide-react';
 
 export const Button: React.FC<any> = ({ children, variant = 'primary', size = 'md', icon: Icon, isLoading, fullWidth, className = '', ...props }) => {
-  const base = "inline-flex items-center justify-center font-semibold transition-all duration-200 focus:outline-none disabled:opacity-50 select-none active:scale-[0.98]";
+  const base = "inline-flex items-center justify-center font-inter font-medium transition-all duration-200 focus:outline-none disabled:opacity-50 select-none active:scale-[0.98]";
   
   const variants = {
     primary: "bg-[#246BFD] text-white hover:bg-[#1B54D8] shadow-lg shadow-blue-500/10",
@@ -35,7 +35,7 @@ export const Card: React.FC<any> = ({ children, title, className = '', headerAct
   <div className={`bg-white rounded-[2rem] border border-slate-100/50 shadow-premium overflow-hidden ${className}`}>
     {(title || headerAction) && (
       <div className="px-8 py-6 flex items-center justify-between">
-        {title && <h3 className="text-lg font-bold text-slate-900 tracking-tight">{title}</h3>}
+        {title && <h3 className="text-lg font-satoshi font-medium text-slate-900 tracking-tight">{title}</h3>}
         {headerAction}
       </div>
     )}
@@ -43,19 +43,21 @@ export const Card: React.FC<any> = ({ children, title, className = '', headerAct
   </div>
 );
 
-export const Logo: React.FC<any> = ({ light, collapsed }) => (
-  <div className={`flex items-center gap-3 select-none ${light ? 'text-white' : 'text-slate-900'}`}>
-    <div className={`w-9 h-9 flex items-center justify-center rounded-2xl ${light ? 'bg-white text-slate-900' : 'bg-[#246BFD] text-white'}`}>
-      <div className="w-4 h-4 rotate-45 border-2 border-current rounded-sm"></div>
+export const Logo: React.FC<any> = ({ light, collapsed, className = '' }) => (
+  <div className={`flex items-center gap-3 select-none transition-all duration-500 ${className}`}>
+    <div className={`shrink-0 w-9 h-9 flex items-center justify-center rounded-2xl ${light ? 'bg-white text-[#246BFD]' : 'bg-[#246BFD] text-white shadow-lg shadow-blue-500/20'}`}>
+       <div className="w-4 h-4 rotate-45 border-2 border-current rounded-sm"></div>
     </div>
     {!collapsed && (
-      <span className="text-xl font-bold tracking-tight">Consult<span className="text-[#246BFD]">AI</span></span>
+      <span className={`text-xl font-satoshi font-bold tracking-tight whitespace-nowrap overflow-hidden transition-all duration-500 ${light ? 'text-white' : 'text-slate-900'}`}>
+        Consult<span className="text-[#246BFD]">AI</span>
+      </span>
     )}
   </div>
 );
 
 export const GlobalSearch: React.FC = () => (
-  <div className="relative w-full max-w-xl">
+  <div className="relative w-full max-w-xl font-inter">
     <input 
       type="text" 
       placeholder="Search task, competitors, or signals..." 
@@ -63,30 +65,28 @@ export const GlobalSearch: React.FC = () => (
     />
     <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 w-5 h-5" />
     <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-1">
-      <kbd className="px-2 py-0.5 rounded-lg bg-slate-50 border border-slate-100 text-[10px] text-slate-400 font-bold">⌘</kbd>
-      <kbd className="px-2 py-0.5 rounded-lg bg-slate-50 border border-slate-100 text-[10px] text-slate-400 font-bold">F</kbd>
+      <kbd className="px-2 py-0.5 rounded-lg bg-slate-50 border border-slate-100 text-[10px] text-slate-400 font-mono font-bold">⌘</kbd>
+      <kbd className="px-2 py-0.5 rounded-lg bg-slate-50 border border-slate-100 text-[10px] text-slate-400 font-mono font-bold">F</kbd>
     </div>
   </div>
 );
 
-// Input component added to resolve export errors in Auth.tsx, Modules.tsx, and Projects.tsx
 export const Input: React.FC<any> = ({ label, subtle, className = '', ...props }) => (
   <div className="w-full">
-    {label && <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 ml-1">{label}</label>}
+    {label && <label className="block text-xs font-inter font-medium text-slate-500 uppercase tracking-wider mb-2 ml-1">{label}</label>}
     <input 
-      className={`w-full h-12 px-4 rounded-xl border border-slate-200 bg-white focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all placeholder:text-slate-300 text-sm ${subtle ? 'bg-slate-50/50 border-transparent' : ''} ${className}`}
+      className={`w-full h-12 px-4 rounded-xl border border-slate-200 bg-white focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all placeholder:text-slate-300 text-sm font-inter ${subtle ? 'bg-slate-50/50 border-transparent' : ''} ${className}`}
       {...props}
     />
   </div>
 );
 
-// Select component added to resolve export errors in Auth.tsx, Modules.tsx, and Projects.tsx
 export const Select: React.FC<any> = ({ label, options, className = '', ...props }) => (
   <div className="w-full">
-    {label && <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 ml-1">{label}</label>}
+    {label && <label className="block text-xs font-inter font-medium text-slate-500 uppercase tracking-wider mb-2 ml-1">{label}</label>}
     <div className="relative">
       <select 
-        className={`w-full h-12 px-4 rounded-xl border border-slate-200 bg-white focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all text-sm appearance-none cursor-pointer pr-10 ${className}`}
+        className={`w-full h-12 px-4 rounded-xl border border-slate-200 bg-white focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all text-sm appearance-none cursor-pointer pr-10 font-inter ${className}`}
         {...props}
       >
         {options.map((opt: string) => (
@@ -100,7 +100,6 @@ export const Select: React.FC<any> = ({ label, options, className = '', ...props
   </div>
 );
 
-// AbstractGraphic component added to resolve export errors in Auth.tsx
 export const AbstractGraphic: React.FC<any> = ({ variant, className = '' }) => {
   if (variant === 'waves') {
     return (
@@ -118,7 +117,6 @@ export const AbstractGraphic: React.FC<any> = ({ variant, className = '' }) => {
   return null;
 };
 
-// Modal component added to resolve export errors in Projects.tsx
 export const Modal: React.FC<any> = ({ isOpen, onClose, title, children }) => {
   if (!isOpen) return null;
   return (
@@ -126,7 +124,7 @@ export const Modal: React.FC<any> = ({ isOpen, onClose, title, children }) => {
       <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={onClose}></div>
       <div className="bg-white rounded-[2.5rem] w-full max-w-2xl p-10 relative z-10 shadow-2xl animate-scale-in max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-center mb-8 sticky top-0 bg-white z-10 pb-2">
-          <h2 className="text-2xl font-bold text-slate-900 tracking-tight">{title}</h2>
+          <h2 className="text-2xl font-satoshi font-bold text-slate-900 tracking-tight">{title}</h2>
           <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-400 hover:text-slate-900">
             <X size={20} />
           </button>

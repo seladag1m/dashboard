@@ -11,8 +11,10 @@ export default {
         accent: { DEFAULT: '#246BFD', hover: '#1B54D8', subtle: 'rgba(36, 107, 253, 0.08)' }
       },
       fontFamily: {
-        sans: ['Inter', 'sans-serif'],
-        serif: ['Instrument Serif', 'serif'],
+        satoshi: ['Satoshi', 'sans-serif'],
+        inter: ['Inter', 'sans-serif'],
+        mono: ['IBM Plex Mono', 'monospace'],
+        'source-serif': ['Source Serif 4', 'serif'],
       },
       boxShadow: {
         'premium': '0 10px 40px -10px rgba(0, 0, 0, 0.05), 0 1px 2px 0 rgba(0, 0, 0, 0.02)',
