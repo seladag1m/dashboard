@@ -1,46 +1,81 @@
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Instrument+Serif:ital,wght@0,400;1,400&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Source+Serif+4:ital,wght@0,400;0,600;1,400&display=swap');
 
 html, body, #root {
   height: 100%;
   width: 100%;
   margin: 0;
   padding: 0;
+  overflow: hidden;
 }
 
 body {
-  background-color: #F8FAFC;
+  background-color: #FFFFFF;
   color: #0F172A;
   font-family: 'Inter', system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
 
-.no-scrollbar::-webkit-scrollbar {
-  display: none;
-}
-.no-scrollbar {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
+.transition-subtle {
+  transition: all 180ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.shadow-premium {
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.01), 0 2px 4px -1px rgba(0, 0, 0, 0.006), 0 20px 25px -5px rgba(0, 0, 0, 0.03);
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
 }
 
-.shadow-float {
-  box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.08), 0 4px 10px -5px rgba(0, 0, 0, 0.02);
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
 }
 
-.animate-reveal {
-  animation: reveal 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #F1F5F9;
+  border-radius: 20px;
 }
 
-@keyframes reveal {
-  0% { opacity: 0; transform: translateY(20px); }
-  100% { opacity: 1; transform: translateY(0); }
+/* Institutional Card Style */
+.briefing-card {
+  background: white;
+  border: 1px solid #F1F5F9;
+  border-radius: 24px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.01);
+  transition: border-color 180ms ease-in-out;
 }
 
-::selection {
-  background-color: #0F172A;
-  color: white;
+.briefing-card:hover {
+  border-color: #E2E8F0;
+}
+
+/* AI Response Matrix Styles */
+.ai-briefing {
+  border-left: 1px solid #F1F5F9;
+  padding-left: 2rem;
+  margin-top: 2rem;
+}
+
+.conclusion-block {
+  border-top: 1px solid #F1F5F9;
+  padding-top: 1.5rem;
+  margin-top: 2rem;
+}
+
+.streaming-cursor::after {
+  content: '';
+  display: inline-block;
+  width: 2px;
+  height: 1.1em;
+  background-color: #246BFD;
+  margin-left: 4px;
+  vertical-align: middle;
+  animation: blink 0.8s step-end infinite;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+/* Typography refinements */
+.font-serif {
+  font-family: 'Source Serif 4', serif;
 }

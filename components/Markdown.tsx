@@ -5,60 +5,63 @@ const parseBold = (text: string) => {
   const parts = text.split(/(\*\*.*?\*\*)/g);
   return parts.map((part, i) => {
     if (part.startsWith('**') && part.endsWith('**')) {
-      return <strong key={i} className="font-bold text-slate-900">{part.slice(2, -2)}</strong>;
+      return <strong key={i} className="font-bold text-slate-950">{part.slice(2, -2)}</strong>;
     }
     return part;
   });
 };
 
-export const SimpleMarkdown = ({ children }: { children?: React.ReactNode }) => {
+export const SimpleMarkdown = ({ children, isStreaming }: { children?: React.ReactNode, isStreaming?: boolean }) => {
   if (typeof children !== 'string') return null;
   const lines = children.split('\n');
   
+  const isHeader = (text: string) => {
+    const keywords = ['CONCLUSION', 'RECOMMENDATION', 'STRATEGIC MOVE', 'NEXT STEPS', 'SUMMARY', 'KEY INSIGHT', 'ANALYSIS'];
+    return keywords.some(k => text.toUpperCase().includes(k));
+  };
+
   return (
-    <div className="space-y-3 text-sm text-slate-700 leading-relaxed font-source-serif">
+    <div className={`space-y-6 text-sm text-slate-600 leading-relaxed font-inter ${isStreaming ? 'streaming-cursor' : ''}`}>
       {lines.map((line, i) => {
         const trimmed = line.trim();
         if (!trimmed) return <div key={i} className="h-2"></div>;
 
-        // Headers
-        if (trimmed.startsWith('### ')) return <h3 key={i} className="text-sm font-inter font-medium mt-4 mb-2 text-slate-900 uppercase tracking-wide">{trimmed.slice(4)}</h3>;
-        if (trimmed.startsWith('## ')) return <h2 key={i} className="text-lg font-satoshi font-medium mt-6 mb-3 text-slate-900">{trimmed.slice(3)}</h2>;
-        if (trimmed.startsWith('# ')) return <h1 key={i} className="text-xl font-satoshi font-bold mt-6 mb-4 text-slate-900 border-b border-slate-100 pb-2">{trimmed.slice(2)}</h1>;
-        
-        // Lists
-        if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
-           return (
-             <div key={i} className="flex gap-3 ml-1 group text-left">
-               <span className="mt-2 w-1.5 h-1.5 rounded-full bg-brand-blue shrink-0 group-hover:scale-125 transition-transform"></span>
-               <span className="text-slate-600 font-source-serif">{parseBold(trimmed.slice(2))}</span>
+        const isSpecial = isHeader(trimmed);
+        const style = { animationDelay: `${Math.min(i * 0.05, 1)}s` };
+
+        let content;
+
+        if (trimmed.startsWith('### ')) {
+          content = <h3 className="text-[10px] font-bold mt-8 mb-4 text-slate-950 uppercase tracking-[0.25em] border-b border-[#F1F5F9] pb-2">{trimmed.slice(4)}</h3>;
+        } else if (trimmed.startsWith('## ')) {
+          content = <h2 className="text-sm font-bold mt-10 mb-5 text-slate-950 uppercase tracking-[0.1em]">{trimmed.slice(3)}</h2>;
+        } else if (trimmed.startsWith('# ')) {
+          content = <h1 className="text-lg font-bold mt-12 mb-6 text-slate-950 tracking-tight">{trimmed.slice(2)}</h1>;
+        }
+        else if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
+           content = (
+             <div className="flex gap-4 ml-1 group text-left">
+               <span className="mt-2 w-1 h-1 rounded-full bg-[#246BFD] shrink-0"></span>
+               <span className="text-slate-600 font-medium">{parseBold(trimmed.slice(2))}</span>
              </div>
            );
         }
-
-        // Ordered Lists (Simple check for "1. ")
-        if (/^\d+\.\s/.test(trimmed)) {
-          const content = trimmed.replace(/^\d+\.\s/, '');
-          const num = trimmed.match(/^\d+/)?.[0];
-          return (
-             <div key={i} className="flex gap-3 ml-1 text-left">
-               <span className="font-mono font-medium text-brand-blue text-xs mt-0.5">{num}.</span>
-               <span className="text-slate-600 font-source-serif">{parseBold(content)}</span>
-             </div>
-          );
-        }
-
-        // Blockquotes
-        if (trimmed.startsWith('> ')) {
-          return (
-            <div key={i} className="border-l-4 border-brand-blue bg-slate-50 pl-4 py-2 my-2 italic text-slate-600 rounded-r-lg font-source-serif text-left">
+        else if (trimmed.startsWith('> ')) {
+          content = (
+            <div className="border-l-2 border-[#246BFD] bg-[#F8FAFC] px-8 py-6 my-6 italic text-slate-700 font-medium text-left">
               {parseBold(trimmed.slice(2))}
             </div>
           );
         }
+        else {
+          content = <p className={`text-left ${isSpecial ? 'font-bold text-slate-950 tracking-tight' : ''}`}>{parseBold(line)}</p>;
+        }
 
-        // Paragraphs
-        return <p key={i} className="text-left font-source-serif">{parseBold(line)}</p>;
+        return (
+          <div key={i} className="animate-reveal" style={style}>
+            {content}
+          </div>
+        );
       })}
     </div>
   );

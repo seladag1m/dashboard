@@ -3,45 +3,31 @@ import React, { useState, useEffect } from 'react';
 import { 
   LayoutDashboard, MessageSquare, Briefcase, Globe, Zap, 
   Users, TrendingUp, FileText, Settings, LogOut, Sparkles,
-  ArrowRight, Activity, Target, AlertTriangle, ShieldCheck, ChevronRight, Share2, BarChart4,
+  ArrowRight, Activity, Target, ShieldCheck, ChevronRight, Share2,
   Loader2, ChevronLeft, ChevronRight as ChevronRightIcon,
-  RefreshCw, Cpu, LayoutTemplate, Layers
+  RefreshCw, Cpu, LayoutTemplate, Layers, AlertTriangle, X,
+  PanelLeftClose, PanelLeftOpen, BarChart3
 } from 'lucide-react';
 import { User, Signal, AppRoute } from '../types';
-import { Logo, Button, Card } from '../components/UI';
+import { Logo, Button, Card, Skeleton, Modal } from '../components/UI';
 import { 
   ConsultantModule, CompetitorModule, MarketModule, SocialPulseModule, 
-  AlertsModule, MarketingModule, ReportsModule 
+  AlertsModule, MarketingModule, ReportsModule, SettingsModule, StockIntelligenceModule
 } from '../components/Modules';
 import { ProjectList, ProjectWorkspace } from '../components/Projects';
 import { fetchRealTimeIntelligence } from '../services/gemini';
+import { db } from '../services/database';
 
 const SidebarItem = ({ icon: Icon, label, active, onClick, collapsed }: any) => (
   <button
     onClick={onClick}
-    className={`w-full flex items-center gap-4 px-5 py-4 rounded-2xl text-[11px] font-inter font-medium uppercase tracking-widest transition-all group relative ${
-      active ? 'bg-slate-900 text-white shadow-2xl shadow-slate-200 translate-x-1' : 'text-slate-400 hover:text-slate-900 hover:bg-slate-50'
+    className={`w-full flex items-center gap-5 px-8 py-5 text-[10px] font-bold uppercase tracking-[0.3em] transition-all group relative ${
+      active ? 'text-slate-950' : 'text-slate-400 hover:text-slate-950'
     } ${collapsed ? 'justify-center px-0' : ''}`}
-    title={collapsed ? label : undefined}
   >
-    <Icon size={18} strokeWidth={active ? 2.5 : 2} className={active ? 'text-brand-blue' : ''} />
-    {!collapsed && <span className="whitespace-nowrap overflow-hidden transition-all duration-300">{label}</span>}
-    {active && !collapsed && <ChevronRight className="ml-auto w-3 h-3 opacity-40 group-hover:translate-x-0.5 transition-transform" />}
-  </button>
-);
-
-const ExpertActionCard = ({ icon: Icon, label, onClick, description }: any) => (
-  <button 
-    onClick={onClick} 
-    className="p-8 bg-white rounded-[2.5rem] border border-slate-100 flex flex-col items-start gap-4 hover:border-brand-blue hover:shadow-float group transition-all duration-500 text-left"
-  >
-    <div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-400 group-hover:bg-brand-blue group-hover:text-white transition-all shadow-sm">
-      <Icon size={20} />
-    </div>
-    <div>
-      <span className="text-[11px] font-inter font-medium uppercase tracking-widest text-slate-950 block mb-1">{label}</span>
-      <p className="text-[10px] text-slate-400 font-medium leading-relaxed">{description}</p>
-    </div>
+    {active && <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#246BFD]"></div>}
+    <Icon size={16} strokeWidth={2.5} className={active ? 'text-[#246BFD]' : 'group-hover:text-slate-950 transition-colors'} />
+    {!collapsed && <span className="whitespace-nowrap">{label}</span>}
   </button>
 );
 
@@ -51,155 +37,125 @@ export const Dashboard: React.FC<{ user: User, onLogout: () => void }> = ({ user
   const [loadingIntel, setLoadingIntel] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [selectedProject, setSelectedProject] = useState<any>(null);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [currentUser, setCurrentUser] = useState(user);
+  const [consultantIntent, setConsultantIntent] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchAlerts = async () => {
       setLoadingIntel(true);
       try {
-        const res = await fetchRealTimeIntelligence(user, 'alerts');
+        const res = await fetchRealTimeIntelligence(currentUser, 'alerts');
         if (res.alerts) setSignals(res.alerts);
       } catch (e) { console.error(e); }
       finally { setLoadingIntel(false); }
     };
     fetchAlerts();
-    const interval = setInterval(fetchAlerts, 60000 * 10);
-    return () => clearInterval(interval);
-  }, [user.id]);
+  }, [currentUser.id]);
 
-  const handleExpertAction = (action: string) => {
+  const handleUpdateDNA = (updatedUser: User) => {
+    setCurrentUser(updatedUser);
+    db.auth.updateUser(updatedUser);
+  };
+
+  const handleTriggerAnalysis = (query: string) => {
+    setConsultantIntent(query);
     setActiveTab('consultant');
-    // We could pass an initial query here to the consultant module
   };
 
   const renderOverview = () => (
-    <div className="h-full overflow-y-auto px-6 lg:px-16 py-12 lg:py-20 space-y-16 animate-reveal max-w-7xl mx-auto custom-scrollbar font-inter">
-      <header className="flex flex-col md:flex-row md:items-end justify-between gap-10">
-        <div className="space-y-4 text-left">
+    <div className="h-full overflow-y-auto px-10 lg:px-24 py-20 space-y-24 animate-fade-in bg-white max-w-[1800px] mx-auto custom-scrollbar">
+      <header className="flex flex-col md:flex-row md:items-end justify-between gap-12 border-b border-[#F1F5F9] pb-16">
+        <div className="space-y-6">
           <div className="flex items-center gap-3">
-             <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
-             <p className="text-[10px] font-inter font-medium text-slate-400 uppercase tracking-[0.4em]">Strategic Engine Online</p>
+             <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
+             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.5em]">Command Node Synchronized</p>
           </div>
-          <h1 className="text-7xl lg:text-8xl font-satoshi font-bold text-slate-950 tracking-tight leading-[0.9]">Executive <br/><span className="text-slate-300 italic">Command.</span></h1>
+          <h1 className="text-8xl font-bold text-slate-950 tracking-tighter leading-[0.8]">
+            Strategic <br/><span className="text-slate-200">Intelligence.</span>
+          </h1>
         </div>
-        <div className="flex items-center gap-6">
-          <Button onClick={() => setActiveTab('consultant')} icon={Sparkles} className="shadow-2xl rounded-full h-16 px-10 text-lg">Deploy Consultant</Button>
+        <div className="flex gap-4">
+           {currentUser.dna.stockTicker && (
+             <Button onClick={() => setActiveTab('stocks')} variant="outline" size="lg" className="h-20 px-8 rounded-full shadow-premium border-brand-blue/20">
+                <TrendingUp size={20} className="text-brand-blue mr-3" />
+                {currentUser.dna.stockTicker} Active
+             </Button>
+           )}
+           <Button onClick={() => setActiveTab('consultant')} variant="action" size="lg" className="h-20 px-12 rounded-full shadow-premium">
+              Deploy AI Consultant
+           </Button>
         </div>
       </header>
 
-      {/* User's requested expert actions */}
-      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-6">
-        <ExpertActionCard 
-          icon={RefreshCw} 
-          label="Refine Model" 
-          description="Optimize business logic for current market signals." 
-          onClick={() => handleExpertAction('refine_model')} 
-        />
-        <ExpertActionCard 
-          icon={Layers} 
-          label="Enhance DNA" 
-          description="Inject new institutional data into core profile." 
-          onClick={() => setActiveTab('settings')} 
-        />
-        <ExpertActionCard 
-          icon={Cpu} 
-          label="AI Agent" 
-          description="Initialize autonomous agent for task execution." 
-          onClick={() => handleExpertAction('ai_agent')} 
-        />
-        <ExpertActionCard 
-          icon={LayoutTemplate} 
-          label="Project Templates" 
-          description="Deploy industry-standard strategic frameworks." 
-          onClick={() => setActiveTab('projects')} 
-        />
-        <ExpertActionCard 
-          icon={Target} 
-          label="Signal Priority" 
-          description="Calibrate threshold for institutional alerts." 
-          onClick={() => handleExpertAction('signal_priority')} 
-        />
-      </div>
-
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
         {[
-          { label: 'Market State', val: user.dna.stage, icon: Activity, color: 'text-emerald-500', bg: 'bg-emerald-50' },
-          { label: 'Active Signals', val: signals.length, valSuffix: 'Detected', icon: Zap, color: 'text-brand-blue', bg: 'bg-blue-50' },
-          { label: 'Core Mandate', val: user.dna.strategicGoals[0] || 'Focus', icon: Target, color: 'text-slate-950', bg: 'bg-slate-100' },
-          { label: 'Risk Protocol', val: user.dna.riskTolerance, icon: ShieldCheck, color: 'text-amber-500', bg: 'bg-amber-50' },
+          { label: 'System Phase', val: currentUser.dna.stage, icon: Activity, color: 'text-emerald-500' },
+          { label: 'Active Signals', val: signals.length, valSuffix: 'LIVE', icon: Zap, color: 'text-[#246BFD]' },
+          { label: 'Strategic Goal', val: currentUser.dna.strategicGoals[0] || 'Efficiency', icon: Target, color: 'text-slate-950' },
+          { label: 'Risk Protocol', val: currentUser.dna.riskTolerance || 'Medium', icon: ShieldCheck, color: 'text-amber-500' },
         ].map((stat, i) => (
-          <div key={i} className="bg-white p-10 rounded-[3rem] border border-slate-50 shadow-premium hover:-translate-y-1 transition-all group">
-            <p className="text-[10px] font-inter font-medium text-slate-400 uppercase tracking-widest mb-4 group-hover:text-brand-blue transition-colors">{stat.label}</p>
+          <div key={i} className="p-10 bg-white border border-[#F1F5F9] rounded-[32px] group transition-all hover:border-slate-200">
+            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-[0.3em] mb-8">{stat.label}</p>
             <div className="flex items-center justify-between">
-              <div className="flex items-baseline gap-2">
-                <h3 className="text-3xl font-mono font-medium text-slate-950">{stat.val}</h3>
-                {stat.valSuffix && <span className="text-xs font-inter font-medium text-slate-400">{stat.valSuffix}</span>}
-              </div>
-              <div className={`w-14 h-14 ${stat.bg} ${stat.color} rounded-[1.5rem] flex items-center justify-center shadow-xl group-hover:scale-110 transition-transform`}><stat.icon size={24} /></div>
+              <h3 className="text-4xl font-bold tracking-tighter text-slate-950">{stat.val}</h3>
+              <div className={`w-12 h-12 flex items-center justify-center ${stat.color}`}><stat.icon size={24} /></div>
             </div>
           </div>
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
-        <div className="lg:col-span-2 space-y-12">
-          <Card title="Institutional Signal Matrix" headerAction={loadingIntel && <Loader2 size={16} className="animate-spin text-brand-blue" />}>
-            <div className="divide-y divide-slate-50">
-              {signals.length > 0 ? signals.map((s: any, idx) => (
-                <div key={idx} onClick={() => handleExpertAction(`Analyze signal: ${s.title}`)} className="py-8 flex items-start justify-between group cursor-pointer">
-                  <div className="flex gap-8">
-                    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 shadow-lg ${s.category === 'Threat' ? 'bg-rose-50 text-rose-500 border border-rose-100' : 'bg-blue-50 text-brand-blue border border-blue-100'}`}>
-                      {s.category === 'Threat' ? <AlertTriangle size={20}/> : <Zap size={20}/>}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-16">
+        <div className="lg:col-span-8 space-y-12">
+          <Card title="Institutional Anomaly Hub" headerAction={loadingIntel && <Loader2 size={16} className="animate-spin text-[#246BFD]" />}>
+            <div className="space-y-2">
+              {signals.length > 0 ? signals.slice(0, 4).map((s: any, idx) => (
+                <div key={idx} className="p-8 border border-transparent hover:border-[#F1F5F9] rounded-[24px] flex items-center justify-between group cursor-pointer transition-all">
+                  <div className="flex gap-8 items-center">
+                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 border ${s.priority === 'Critical' ? 'text-rose-500 bg-rose-50 border-rose-100' : 'text-[#246BFD] bg-blue-50 border-blue-100'}`}>
+                      <Zap size={20}/>
                     </div>
-                    <div className="text-left">
-                      <div className="flex items-center gap-3 mb-2">
-                        <span className={`text-[9px] font-inter font-medium uppercase tracking-widest px-3 py-1 rounded-full ${s.category === 'Threat' ? 'bg-rose-50 text-rose-600' : 'bg-blue-50 text-blue-600'}`}>{s.category || 'SIGNAL'}</span>
-                        <span className="text-[9px] font-inter font-medium text-slate-300 uppercase tracking-widest">{s.time || 'SYNCHRONOUS'}</span>
+                    <div>
+                      <div className="flex items-center gap-3">
+                        <h4 className="text-xl font-bold text-slate-950 tracking-tight">"{s.title}"</h4>
+                        <span className="text-[8px] font-bold bg-slate-100 px-2 py-0.5 rounded text-slate-500 uppercase">{s.category}</span>
                       </div>
-                      <h4 className="text-xl font-satoshi font-medium text-slate-900 group-hover:text-brand-blue transition-colors">"{s.title}"</h4>
-                      <p className="text-xs text-slate-400 mt-2 font-inter leading-relaxed">{s.desc}</p>
+                      <p className="text-[11px] text-slate-400 mt-2 font-medium italic opacity-70">"{s.desc}"</p>
                     </div>
                   </div>
-                  <div className="mt-4 p-3 bg-slate-50 text-slate-300 rounded-full group-hover:bg-brand-blue group-hover:text-white transition-all">
-                     <ChevronRight size={16} />
-                  </div>
+                  <ChevronRight size={16} className="text-slate-200 group-hover:text-slate-950 transition-colors" />
                 </div>
-              )) : (
-                <div className="py-20 text-center space-y-4 opacity-30 grayscale">
-                   <ShieldCheck size={48} className="mx-auto" />
-                   <p className="text-xs font-inter font-medium uppercase tracking-[0.4em]">Horizon Clean. Surveillance active.</p>
-                </div>
-              )}
+              )) : <Skeleton height="200px" />}
             </div>
-            <Button variant="ghost" fullWidth className="mt-8 rounded-2xl border border-slate-50 py-4 h-auto" onClick={() => setActiveTab('signals')}>Access Strategic Intelligence Matrix <ArrowRight size={14} className="ml-2"/></Button>
+            <Button variant="outline" fullWidth className="mt-12 h-16 rounded-full border-[#F1F5F9]" onClick={() => setActiveTab('signals')}>
+              Access Detailed Alerts Hub <ArrowRight size={14} className="ml-3"/>
+            </Button>
           </Card>
         </div>
 
-        <div className="space-y-8">
-          <div className="p-12 bg-slate-950 rounded-[3rem] text-white space-y-6 relative overflow-hidden shadow-2xl">
-             <div className="absolute inset-0 bg-brand-blue/5 opacity-20 pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle, #fff 1px, transparent 1px)', backgroundSize: '20px 20px' }}></div>
-             <div className="flex items-center gap-3 text-brand-blue mb-2 relative z-10">
-                <Sparkles size={18} />
-                <span className="text-[10px] font-inter font-medium uppercase tracking-[0.4em]">Advisor Proactive</span>
-             </div>
-             <p className="text-2xl font-source-serif italic font-light relative z-10 leading-relaxed text-left">
-               "Detected a 14% shift in competitor pricing strategy. Initializing counter-maneuver frameworks..."
-             </p>
-             <button onClick={() => setActiveTab('market')} className="text-[10px] font-inter font-medium uppercase tracking-widest text-slate-400 hover:text-white transition-colors flex items-center gap-2 relative z-10">
-               Audit Market Vector <ArrowRight size={12} />
-             </button>
-          </div>
+        <div className="lg:col-span-4 space-y-10">
+          {currentUser.dna.stockTicker && (
+            <div className="p-12 bg-emerald-50 rounded-[40px] border border-emerald-100 space-y-8 group cursor-pointer" onClick={() => setActiveTab('stocks')}>
+               <p className="text-2xl font-bold tracking-tight italic text-emerald-900 leading-tight">
+                 "Live analysis for {currentUser.dna.stockTicker} indicates potential alpha window."
+               </p>
+               <button className="text-[10px] font-bold uppercase tracking-[0.4em] text-emerald-600 flex items-center gap-3">
+                 View Stock Alpha <ArrowRight size={14} />
+               </button>
+            </div>
+          )}
           
-          <Card title="Quick Deploy">
-             <div className="grid grid-cols-1 gap-4">
+          <Card title="Tactical Roadmaps">
+             <div className="space-y-4">
                 {[
-                  { label: 'Executive Brief', tab: 'reports', icon: FileText },
-                  { label: 'Market Campaign', tab: 'marketing', icon: TrendingUp },
-                  { label: 'Competitor Mapping', tab: 'competitors', icon: Users },
+                  { label: 'Briefing Reports', tab: 'reports', icon: FileText },
+                  { label: 'Neural Campaigns', tab: 'marketing', icon: TrendingUp },
+                  { label: 'Rival Surveillance', tab: 'competitors', icon: Users },
                 ].map((btn, i) => (
-                  <button key={i} onClick={() => setActiveTab(btn.tab)} className="p-6 bg-slate-50 rounded-3xl border border-slate-100 flex items-center justify-between hover:bg-white hover:border-brand-blue transition-all group">
-                    <div className="flex items-center gap-4">
-                       <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-slate-400 group-hover:text-brand-blue transition-colors shadow-sm"><btn.icon size={18} /></div>
-                       <span className="text-[11px] font-bold uppercase tracking-widest text-slate-600 group-hover:text-slate-900">{btn.label}</span>
+                  <button key={i} onClick={() => setActiveTab(btn.tab)} className="w-full p-6 bg-white border border-[#F1F5F9] rounded-2xl flex items-center justify-between hover:border-slate-300 transition-all group">
+                    <div className="flex items-center gap-6 text-slate-400 group-hover:text-[#246BFD] transition-colors">
+                       <btn.icon size={20} />
+                       <span className="text-[11px] font-bold uppercase tracking-widest text-slate-900">{btn.label}</span>
                     </div>
                     <ChevronRight size={14} className="text-slate-200" />
                   </button>
@@ -212,82 +168,79 @@ export const Dashboard: React.FC<{ user: User, onLogout: () => void }> = ({ user
   );
 
   return (
-    <div className="h-full flex bg-[#F8FAFC] selection:bg-brand-blue selection:text-white font-inter">
-      <aside className={`bg-white border-r border-slate-100 flex flex-col p-10 z-50 transition-all duration-500 ease-in-out relative ${isSidebarCollapsed ? 'w-24 px-4' : 'w-[340px]'}`}>
-        <button 
-          onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-          className="absolute -right-4 top-1/2 -translate-y-1/2 w-8 h-8 bg-white border border-slate-200 rounded-full flex items-center justify-center shadow-lg hover:bg-slate-50 transition-colors z-[60]"
-        >
-          {isSidebarCollapsed ? <ChevronRightIcon size={14} className="text-slate-400" /> : <ChevronLeft size={14} className="text-slate-400" />}
-        </button>
-
-        <div className={`mb-20 flex justify-center transition-all ${isSidebarCollapsed ? 'px-0' : 'px-5'}`}>
-          <Logo collapsed={isSidebarCollapsed} />
+    <div className="h-full flex bg-white font-inter text-slate-950">
+      <aside className={`bg-white border-r border-[#F1F5F9] flex flex-col transition-all duration-300 ${isSidebarCollapsed ? 'w-20' : 'w-[320px]'}`}>
+        <div className={`h-24 border-b border-[#F1F5F9] flex items-center px-6 transition-all ${isSidebarCollapsed ? 'justify-center' : 'justify-between'}`}>
+          {!isSidebarCollapsed && <Logo />}
+          <button 
+            onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)} 
+            className="p-2.5 text-slate-400 hover:text-slate-950 hover:bg-slate-50 rounded-xl transition-all"
+          >
+            {isSidebarCollapsed ? <PanelLeftOpen size={20} /> : <PanelLeftClose size={20} />}
+          </button>
         </div>
         
-        <nav className="flex-1 space-y-2 overflow-y-auto no-scrollbar">
-          <SidebarItem icon={LayoutDashboard} label="Command Hub" active={activeTab === 'overview'} onClick={() => { setActiveTab('overview'); setSelectedProject(null); }} collapsed={isSidebarCollapsed} />
-          <SidebarItem icon={MessageSquare} label="AI Consultant" active={activeTab === 'consultant'} onClick={() => { setActiveTab('consultant'); setSelectedProject(null); }} collapsed={isSidebarCollapsed} />
-          <SidebarItem icon={Briefcase} label="Mandates" active={activeTab === 'projects'} onClick={() => { setActiveTab('projects'); setSelectedProject(null); }} collapsed={isSidebarCollapsed} />
+        <nav className="flex-1 space-y-2 overflow-y-auto no-scrollbar pt-10">
+          <SidebarItem icon={LayoutDashboard} label="Command Hub" active={activeTab === 'overview'} onClick={() => setActiveTab('overview')} collapsed={isSidebarCollapsed} />
+          <SidebarItem icon={MessageSquare} label="AI Consultant" active={activeTab === 'consultant'} onClick={() => setActiveTab('consultant')} collapsed={isSidebarCollapsed} />
+          <SidebarItem icon={Briefcase} label="Mandates" active={activeTab === 'projects'} onClick={() => setActiveTab('projects')} collapsed={isSidebarCollapsed} />
           
-          <div className={`h-10 transition-opacity ${isSidebarCollapsed ? 'opacity-0' : 'opacity-100'}`}></div>
-          <p className={`text-[9px] font-inter font-medium text-slate-300 uppercase tracking-[0.4em] mb-4 transition-all ${isSidebarCollapsed ? 'opacity-0 h-0 overflow-hidden' : 'px-5 opacity-100'}`}>Intelligence</p>
+          {!isSidebarCollapsed && <p className="px-8 mt-12 mb-4 text-[9px] font-bold text-slate-300 uppercase tracking-[0.5em]">Intelligence Matrix</p>}
           
-          <SidebarItem icon={Users} label="Competitors" active={activeTab === 'competitors'} onClick={() => { setActiveTab('competitors'); setSelectedProject(null); }} collapsed={isSidebarCollapsed} />
-          <SidebarItem icon={Globe} label="Market Matrix" active={activeTab === 'market'} onClick={() => { setActiveTab('market'); setSelectedProject(null); }} collapsed={isSidebarCollapsed} />
-          <SidebarItem icon={Share2} label="Social Pulse" active={activeTab === 'social'} onClick={() => { setActiveTab('social'); setSelectedProject(null); }} collapsed={isSidebarCollapsed} />
-          <SidebarItem icon={Zap} label="Signal Hub" active={activeTab === 'signals'} onClick={() => { setActiveTab('signals'); setSelectedProject(null); }} collapsed={isSidebarCollapsed} />
+          <SidebarItem icon={BarChart3} label="Stock Alpha" active={activeTab === 'stocks'} onClick={() => setActiveTab('stocks')} collapsed={isSidebarCollapsed} />
+          <SidebarItem icon={Users} label="Competitors" active={activeTab === 'competitors'} onClick={() => setActiveTab('competitors')} collapsed={isSidebarCollapsed} />
+          <SidebarItem icon={Globe} label="Market Matrix" active={activeTab === 'market'} onClick={() => setActiveTab('market')} collapsed={isSidebarCollapsed} />
+          <SidebarItem icon={Share2} label="Social Pulse" active={activeTab === 'social'} onClick={() => setActiveTab('social')} collapsed={isSidebarCollapsed} />
+          <SidebarItem icon={Zap} label="Signals" active={activeTab === 'signals'} onClick={() => setActiveTab('signals')} collapsed={isSidebarCollapsed} />
           
-          <div className={`h-10 transition-opacity ${isSidebarCollapsed ? 'opacity-0' : 'opacity-100'}`}></div>
-          <SidebarItem icon={TrendingUp} label="Deployment" active={activeTab === 'marketing'} onClick={() => { setActiveTab('marketing'); setSelectedProject(null); }} collapsed={isSidebarCollapsed} />
-          <SidebarItem icon={FileText} label="Executive Archive" active={activeTab === 'reports'} onClick={() => { setActiveTab('reports'); setSelectedProject(null); }} collapsed={isSidebarCollapsed} />
+          {!isSidebarCollapsed && <p className="px-8 mt-12 mb-4 text-[9px] font-bold text-slate-300 uppercase tracking-[0.5em]">Deployment</p>}
+          <SidebarItem icon={TrendingUp} label="Campaigns" active={activeTab === 'marketing'} onClick={() => setActiveTab('marketing')} collapsed={isSidebarCollapsed} />
+          <SidebarItem icon={FileText} label="Archives" active={activeTab === 'reports'} onClick={() => setActiveTab('reports')} collapsed={isSidebarCollapsed} />
         </nav>
 
-        <div className="mt-auto pt-10 border-t border-slate-50 space-y-2">
-          <SidebarItem icon={Settings} label="Calibration" active={activeTab === 'settings'} onClick={() => { setActiveTab('settings'); setSelectedProject(null); }} collapsed={isSidebarCollapsed} />
-          <SidebarItem icon={LogOut} label="Revoke Session" onClick={onLogout} collapsed={isSidebarCollapsed} />
+        <div className="mt-auto p-6 space-y-4 border-t border-[#F1F5F9]">
+          <SidebarItem icon={Settings} label="Calibration" active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} collapsed={isSidebarCollapsed} />
+          <SidebarItem icon={LogOut} label="Log Out" onClick={() => setShowLogoutConfirm(true)} collapsed={isSidebarCollapsed} />
         </div>
       </aside>
 
       <main className="flex-1 overflow-hidden relative">
-        {activeTab === 'overview' && renderOverview()}
-        {activeTab === 'consultant' && <ConsultantModule user={user} />}
-        {activeTab === 'projects' && (
-          selectedProject ? 
-            <ProjectWorkspace user={user} project={selectedProject} onBack={() => setSelectedProject(null)} /> : 
-            <ProjectList user={user} onSelectProject={setSelectedProject} />
-        )}
-        {activeTab === 'competitors' && <CompetitorModule user={user} onAnalyze={handleExpertAction} />}
-        {activeTab === 'market' && <MarketModule user={user} onAnalyze={handleExpertAction} />}
-        {activeTab === 'social' && <SocialPulseModule user={user} onAnalyze={handleExpertAction} />}
-        {activeTab === 'signals' && <AlertsModule user={user} onAnalyze={handleExpertAction} />}
-        {activeTab === 'marketing' && <MarketingModule user={user} onAnalyze={handleExpertAction} />}
-        {activeTab === 'reports' && <ReportsModule user={user} onAnalyze={handleExpertAction} />}
-        {activeTab === 'settings' && (
-          <div className="h-full flex items-center justify-center p-20 bg-slate-50/50">
-            <div className="max-w-2xl w-full text-center space-y-12">
-               <h2 className="text-4xl font-serif font-bold italic">DNA Calibration</h2>
-               <div className="p-10 bg-white rounded-[3rem] border border-slate-100 shadow-premium space-y-8 text-left">
-                  <div className="space-y-4">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Industry Domain</p>
-                    <p className="text-xl font-bold text-slate-900 border-b border-slate-50 pb-4">{user.dna.industry}</p>
-                  </div>
-                  <div className="space-y-4">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Model Synthesis</p>
-                    <p className="text-xl font-bold text-slate-900 border-b border-slate-50 pb-4">{user.dna.businessModel} Protocol</p>
-                  </div>
-                  <div className="space-y-4">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Target Mandate</p>
-                    <p className="text-xl font-bold text-slate-900 border-b border-slate-50 pb-4">{user.dna.strategicGoals.join(', ')}</p>
-                  </div>
-                  <Button fullWidth variant="outline" className="h-16 rounded-full" onClick={() => alert("DNA Modification Protocol Locked. Contact Admin for core changes.")}>
-                    Initiate Profile Update
-                  </Button>
-               </div>
-            </div>
-          </div>
-        )}
+        <div key={activeTab} className="h-full animate-fade-in">
+          {activeTab === 'overview' && renderOverview()}
+          {activeTab === 'stocks' && <StockIntelligenceModule user={currentUser} />}
+          {activeTab === 'consultant' && (
+            <ConsultantModule 
+              user={currentUser} 
+              initialQuery={consultantIntent} 
+              onQueryConsumed={() => setConsultantIntent(null)} 
+            />
+          )}
+          {activeTab === 'projects' && (
+            selectedProject ? 
+              <ProjectWorkspace user={currentUser} project={selectedProject} onBack={() => setSelectedProject(null)} /> : 
+              <ProjectList user={currentUser} onSelectProject={setSelectedProject} />
+          )}
+          {activeTab === 'competitors' && <CompetitorModule user={currentUser} onAnalyze={handleTriggerAnalysis} />}
+          {activeTab === 'market' && <MarketModule user={currentUser} onAnalyze={() => handleTriggerAnalysis('Perform strategic market vector synthesis.')} />}
+          {activeTab === 'social' && <SocialPulseModule user={currentUser} onAnalyze={handleTriggerAnalysis} />}
+          {activeTab === 'signals' && <AlertsModule user={currentUser} onAnalyze={handleTriggerAnalysis} />}
+          {activeTab === 'marketing' && <MarketingModule user={currentUser} onAnalyze={handleTriggerAnalysis} />}
+          {activeTab === 'reports' && <ReportsModule user={currentUser} onAnalyze={handleTriggerAnalysis} />}
+          {activeTab === 'settings' && <SettingsModule user={currentUser} onUpdate={handleUpdateDNA} />}
+        </div>
       </main>
+
+      <Modal isOpen={showLogoutConfirm} onClose={() => setShowLogoutConfirm(false)} title="Executive Exit">
+         <div className="space-y-8 py-4 text-left">
+            <p className="text-lg text-slate-500 font-medium italic leading-relaxed">
+              "You are about to terminate the active strategic session. Institutional context will be archived and secured."
+            </p>
+            <div className="flex gap-4">
+               <Button variant="outline" fullWidth onClick={() => setShowLogoutConfirm(false)} className="h-14 rounded-xl">Resume Protocol</Button>
+               <Button variant="primary" fullWidth onClick={onLogout} className="h-14 rounded-xl bg-rose-600 hover:bg-rose-700">Authorize Exit</Button>
+            </div>
+         </div>
+      </Modal>
     </div>
   );
 };
