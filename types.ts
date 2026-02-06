@@ -17,11 +17,6 @@ export interface BusinessDNA {
   riskTolerance: 'Low' | 'Medium' | 'High';
   manualCompetitors: string[];
   website?: string;
-  description?: string;
-  valueProposition?: string;
-  toneOfVoice?: string;
-  stockTicker?: string;
-  stockExchange?: string;
   socialLinks: {
     linkedin?: string;
     twitter?: string;
@@ -31,7 +26,6 @@ export interface BusinessDNA {
     marketContext: string;
     competitorIntel: string;
     lastScan: string;
-    autoFilledFields?: string[];
   };
 }
 

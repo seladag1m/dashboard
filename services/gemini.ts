@@ -1,204 +1,200 @@
 
-import { GoogleGenAI, Type, Modality, GenerateContentResponse } from "@google/genai";
-import { User, BusinessDNA, StrategicReport, MarketingAsset, Project, Message, ProjectFile } from "../types";
-
-const getAI = () => {
-  return new GoogleGenAI({ apiKey: process.env.API_KEY || "" });
-};
+import { GoogleGenAI, Type } from "@google/genai";
+import { User, BusinessDNA, StrategicReport, MarketingAsset, Message, Project } from "../types";
 
 const buildSystemInstruction = (dna: BusinessDNA) => `
-You are Consult AI, the Elite Strategic Intelligence Engine for ${dna.companyName}.
-Your mandate: Provide board-level strategic advisory based on the following BUSINESS DNA:
-- Industry: ${dna.industry}
-- Target Customer: ${dna.customerSegment}
-- Growth Stage: ${dna.stage}
-- Rivals: ${dna.manualCompetitors?.join(", ") || 'Sector incumbents'}
-- Tone: ${dna.toneOfVoice || 'Executive & Precise'}
+You are Consult AI, an elite institutional intelligence engine.
+Your purpose is to provide high-stakes strategic synthesis for ${dna.companyName}.
+BUSINESS PROFILE:
+- Sector: ${dna.industry}
+- Model: ${dna.businessModel}
+- Market: ${dna.operatingMarkets.join(", ")}
+- Objectives: ${dna.strategicGoals.join(", ")}
+- Status: ${dna.stage}
 
-MODUS OPERANDI:
-- Monitor high-stakes anomalies: Competitor moves, Keyword spikes, Market shifts, Demand changes, Existential risks, and Alpha opportunities.
-- For MARKETING: Generate high-fidelity, brand-matched assets: Social Posts, Email Sequences, Landing Page Copy, Ads, Content Calendars, and Full Campaigns.
-- BRAND-MATCHING: Every output must strictly reflect ${dna.companyName}'s value proposition, tone, and customer persona.
-- AI Action: Always conclude an anomaly alert with a "Recommended Strategic Move".
-- Style: Premium, institutional, high-stakes, data-driven.
+PROTOCOL:
+1. Executive tone. Institutional gravity. 
+2. Direct, unsweetened analysis.
+3. Structure: CORE INSIGHT -> EVIDENCE -> TACTICAL RESPONSE.
+4. Ground all recommendations in current market indices.
 `;
 
-const extractJSON = (text: string): any => {
-  if (!text) return null;
+const extractJson = (text: string) => {
+  if (!text) return {};
   try {
-    return JSON.parse(text);
+    const jsonMatch = text.match(/\{[\s\S]*\}|\[[\s\S]*\]/);
+    return JSON.parse(jsonMatch ? jsonMatch[0] : text);
   } catch (e) {
-    try {
-      const match = text.match(/\{[\s\S]*\}|\[[\s\S]*\]/);
-      if (match) {
-        let jsonStr = match[0].replace(/,\s*([\]}])/g, '$1');
-        return JSON.parse(jsonStr);
-      }
-    } catch (e2) {
-      console.error("JSON Extraction failed", text);
-    }
+    console.error("Institutional Data Parsing Error:", e);
+    return {};
   }
-  return null;
+};
+
+export const scanAndEnrichDNA = async (dna: BusinessDNA): Promise<any> => {
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const prompt = `Perform a high-stakes institutional audit of ${dna.website}. 
+  Identify Industry, Business Model, Customer Segment, Competitors, and Social handles.
+  Return strictly JSON.`;
+
+  const response = await ai.models.generateContent({
+    model: 'gemini-3-flash-preview',
+    contents: { parts: [{ text: prompt }] },
+    config: { 
+      tools: [{ googleSearch: {} }],
+      responseMimeType: "application/json"
+    }
+  });
+
+  return extractJson(response.text || "{}");
 };
 
 export const fetchRealTimeIntelligence = async (user: User, type: 'competitors' | 'market' | 'alerts' | 'overview' | 'social') => {
-  const ai = getAI();
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const promptMap = {
-    competitors: `Audit top rivals for ${user.companyName}. Formulate a "Suggested Strategic Move" for each. Return JSON: { 
-      "competitors": [{
-        "name": "string", "hqLocation": "string", "latitude": number, "longitude": number, "recentMove": "string",
-        "analysis": { "strengths": ["string"], "weaknesses": ["string"], "opportunities": ["string"], "strikeZone": "string", "suggestedStrategicMove": "string", "threatLevel": "High" | "Medium" | "Low" }
-      }] 
-    }`,
-    market: `Market Matrix Audit for ${user.companyName}. Return JSON: { 
-      "matrix": [{ "x": number, "y": number, "z": number, "sentiment": number, "label": "string" }], 
-      "porters": [{ "factor": "string", "score": number, "analysis": "string" }], 
-      "vectors": [{ "title": "string", "description": "string", "impact": "High" | "Medium" | "Low", "trend": "Rising" | "Falling" | "Stable" }],
-      "bottomLine": "string"
-    }`,
-    social: `Benchmarking for ${user.companyName} vs Rivals. Use Social Blade-style indices. Return JSON: { 
-      "userStatus": [{ "platform": "string", "status": "string", "winningTheme": "string", "suggestion": "string" }],
-      "benchmarking": [{ "entity": "string", "engagement": number, "growth": number, "sentiment": number }],
-      "narrativeSummary": "string"
-    }`,
-    alerts: `ACTIVE MONITORING for ${user.companyName}. SCAN FOR: 
-    1. Competitor moves (Alert)
-    2. Market trend shifts (Alert)
-    3. Keyword spikes (Alert)
-    4. Product demand changes (Alert)
-    5. AI-detected danger/threats (Alert)
-    6. AI-detected opportunities (Alert)
-    
-    Return JSON: { 
-      "alerts": [{ 
-        "title": "string", 
-        "desc": "string", 
-        "category": "Competitor Move" | "Trend Shift" | "Keyword Spike" | "Demand Change" | "Threat" | "Opportunity", 
-        "strategicMove": "string (Actionable recommended move)", 
-        "priority": "High" | "Medium" | "Critical",
-        "time": "HH:MM:SS"
-      }] 
-    }`,
-    overview: `System state summary. JSON: { overview: "string", keyMetrics: [{label, value, trend}] }`
+    competitors: `Identify top rivals for ${user.companyName}. Return JSON: { "competitors": [{ "name": "string", "url": "string", "latitude": "number", "longitude": "number", "swot": { "strengths": ["string"], "weaknesses": ["string"] } }] }`,
+    market: `Analyze market forces for ${user.dna.industry}. Return JSON for bubble charts and porters 5 forces.`,
+    social: `Analyze brand sentiment for ${user.companyName}. Return JSON.`,
+    alerts: `Detect market anomalies for ${user.companyName}. Return JSON: { "alerts": [{ "title": "string", "desc": "string", "category": "Threat|Opportunity", "strategicMove": "string" }] }`,
+    overview: `High-level system status.`
   };
 
   const response = await ai.models.generateContent({
     model: 'gemini-3-flash-preview',
-    contents: [{ parts: [{ text: promptMap[type] || promptMap.overview }] }],
+    contents: { parts: [{ text: promptMap[type] || promptMap.overview }] },
     config: { 
       systemInstruction: buildSystemInstruction(user.dna),
+      tools: [{ googleSearch: {} }],
+      responseMimeType: "application/json"
+    }
+  });
+
+  return extractJson(response.text || "{}");
+};
+
+export const generateStrategicReport = async (user: User): Promise<StrategicReport> => {
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const response = await ai.models.generateContent({
+    model: 'gemini-3-pro-preview',
+    contents: { parts: [{ text: "Synthesize a comprehensive Board Briefing covering market trajectory." }] },
+    config: {
+      systemInstruction: buildSystemInstruction(user.dna),
+      thinkingConfig: { thinkingBudget: 32768 },
       tools: [{ googleSearch: {} }]
     }
   });
-  return extractJSON(response.text || "") || {};
+
+  return {
+    id: Date.now().toString(),
+    title: "Executive Strategic Mandate",
+    date: new Date().toLocaleDateString(),
+    summary: "Synthesis of current institutional signals.",
+    content: response.text || "Mandate generation failed."
+  };
 };
 
-export const generateMarketingCampaign = async (user: User, prompt: string, type: string): Promise<MarketingAsset[]> => {
-  const ai = getAI();
-  const campaignRes = await ai.models.generateContent({
+export const generateMarketingCampaign = async (user: User, prompt: string, includeVisuals: boolean): Promise<MarketingAsset[]> => {
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const response = await ai.models.generateContent({
     model: 'gemini-3-flash-preview',
-    contents: [{ parts: [{ text: `Act as a Head of Growth for ${user.companyName}.
-    TASK: Generate a high-fidelity ${type} mandate.
-    MANDATE TYPES: 
-    - Full Campaign: Integrated strategy.
-    - Social Posts: Platform optimized copy (LinkedIn, Twitter).
-    - Email Sequence: 3+ sequenced emails.
-    - Landing Page Copy: Authority-driven layout copy.
-    - Ads: Multi-platform high-conversion headlines & body.
-    - Content Calendar: 7-day roadmap.
-    
-    FOCUS: ${prompt}.
-    MANDATORY BRAND-MATCH: Colors, Tone (${user.dna.toneOfVoice}), Customer Persona (${user.dna.customerSegment}).
-    
-    Return JSON array: [{"channel": "Email" | "LinkedIn" | "Twitter" | "Instagram" | "Web", "title": "string", "content": "string", "tags": ["string"], "visualPrompt": "string"}]` }] }],
+    contents: { parts: [{ text: `Generate campaign asset for: ${prompt}. Return JSON array.` }] },
     config: { 
       systemInstruction: buildSystemInstruction(user.dna),
       responseMimeType: "application/json" 
     }
   });
 
-  let assets: any[] = extractJSON(campaignRes.text || "") || [];
-  
-  if (assets.length > 0) {
-    const visualPrompt = assets[0].visualPrompt || prompt;
-    const imgRes = await ai.models.generateContent({
-      model: 'gemini-2.5-flash-image',
-      contents: [{ parts: [{ text: `Minimalist, premium institutional marketing visual for ${user.companyName}: ${visualPrompt}. High-end corporate photography style.` }] }],
-      config: { imageConfig: { aspectRatio: "16:9" } }
-    });
-    
-    for (const part of imgRes.candidates[0].content.parts) {
-      if (part.inlineData) {
-        assets[0].imageData = `data:image/png;base64,${part.inlineData.data}`;
-      }
-    }
+  let assets = extractJson(response.text || "[]");
+  if (!Array.isArray(assets)) assets = [assets];
+
+  if (includeVisuals && assets[0]) {
+    try {
+      const imgRes = await ai.models.generateContent({
+        model: 'gemini-2.5-flash-image',
+        contents: { parts: [{ text: `Premium consulting visual for ${user.companyName}: ${assets[0].visualPrompt}` }] },
+        config: { imageConfig: { aspectRatio: "16:9" } }
+      });
+      const part = imgRes.candidates?.[0]?.content?.parts.find(p => p.inlineData);
+      if (part?.inlineData) assets[0].imageData = `data:image/png;base64,${part.inlineData.data}`;
+    } catch (e) { console.error("Visual generation failed", e); }
   }
 
-  return assets.map(a => ({
-    ...a,
-    id: Math.random().toString(36).substr(2, 9),
-    timestamp: new Date().toLocaleDateString()
+  return assets.map(a => ({ ...a, id: Date.now().toString(), timestamp: new Date().toLocaleDateString() }));
+};
+
+// Implemented generateMarketingVideo using Veo 3.1 for strategic motion assets
+export const generateMarketingVideo = async (user: User, prompt: string, aspectRatio: '16:9' | '9:16'): Promise<MarketingAsset> => {
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  
+  let operation = await ai.models.generateVideos({
+    model: 'veo-3.1-fast-generate-preview',
+    prompt: `A sleek institutional brand video for ${user.companyName}: ${prompt}`,
+    config: {
+      numberOfVideos: 1,
+      resolution: '720p',
+      aspectRatio: aspectRatio
+    }
+  });
+
+  // Polling logic for video generation operation
+  while (!operation.done) {
+    await new Promise(resolve => setTimeout(resolve, 10000));
+    operation = await ai.operations.getVideosOperation({ operation: operation });
+  }
+
+  const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
+  // Fetching the final MP4 bytes with the required API key
+  const response = await fetch(`${downloadLink}&key=${process.env.API_KEY}`);
+  const blob = await response.blob();
+  const videoUrl = URL.createObjectURL(blob);
+
+  return {
+    id: Date.now().toString(),
+    channel: 'Social Video',
+    title: `Mandate Motion: ${prompt.substring(0, 30)}`,
+    content: `Institutional motion asset synthesized for ${user.companyName} using Veo 3.1.`,
+    videoUrl: videoUrl,
+    timestamp: new Date().toLocaleDateString(),
+    tags: ['Motion', 'Strategic', 'Institutional'],
+    aspectRatio: aspectRatio
+  };
+};
+
+// Implemented getExecutiveConsultation for non-streaming advisory responses
+export const getExecutiveConsultation = async (user: User, input: string, history: { role: 'user' | 'model'; content: string }[]): Promise<string> => {
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const contents = history.map(m => ({
+    role: m.role,
+    parts: [{ text: m.content }]
   }));
-};
+  contents.push({ role: 'user', parts: [{ text: input }] });
 
-// ... remaining service methods unchanged ...
-export const searchStockTicker = async (query: string): Promise<any[]> => {
-  const ai = getAI();
-  const response = await ai.models.generateContent({
-    model: 'gemini-3-flash-preview',
-    contents: [{ parts: [{ text: `Search stock ticker for: "${query}". JSON array: [{"symbol": "string", "name": "string", "exchange": "string"}]` }] }],
-    config: { tools: [{ googleSearch: {} }] }
-  });
-  return extractJSON(response.text || "") || [];
-};
-
-export const fetchStockIntelligence = async (ticker: string) => {
-  const ai = getAI();
-  const response = await ai.models.generateContent({
-    model: 'gemini-3-flash-preview',
-    contents: [{ parts: [{ text: `Stock intel for ${ticker}. JSON: {"summary": "string", "sentiment": "Bullish" | "Bearish", "marketStatus": "Open", "signals": [], "history": []}` }] }],
-    config: { tools: [{ googleSearch: {} }] }
-  });
-  return extractJSON(response.text || "") || {};
-};
-
-export const scanAndEnrichDNA = async (dna: Partial<BusinessDNA>): Promise<any> => {
-  const ai = getAI();
-  const response = await ai.models.generateContent({
-    model: 'gemini-3-flash-preview',
-    contents: [{ parts: [{ text: `Audit website: ${dna.website}. JSON DNA mapping.` }] }],
-    config: { tools: [{ googleSearch: {} }] }
-  });
-  return extractJSON(response.text || "") || {};
-};
-
-export const generateStrategicReport = async (user: User): Promise<StrategicReport> => {
-  const ai = getAI();
   const response = await ai.models.generateContent({
     model: 'gemini-3-pro-preview',
-    contents: [{ parts: [{ text: "Synthesize Board Briefing." }] }],
-    config: { systemInstruction: buildSystemInstruction(user.dna) }
+    contents: contents,
+    config: {
+      systemInstruction: buildSystemInstruction(user.dna),
+      thinkingConfig: { thinkingBudget: 32768 },
+      tools: [{ googleSearch: {} }]
+    }
   });
-  return { id: Date.now().toString(), title: "Executive Mandate", date: new Date().toLocaleDateString(), summary: "Strategic synthesis.", content: response.text || "" };
-};
 
-export const getExecutiveConsultation = async (user: User, query: string, history: any[] = [], attachments: ProjectFile[] = []) => {
-  const ai = getAI();
-  const parts: any[] = attachments.map(f => ({ inlineData: { data: f.content, mimeType: f.mimeType } }));
-  parts.push({ text: query });
-  const response = await ai.models.generateContent({
-    model: 'gemini-3-pro-preview',
-    contents: [...history.map(h => ({ role: h.role === 'user' ? 'user' : 'model', parts: [{ text: h.content }] })), { role: 'user', parts: parts }],
-    config: { systemInstruction: buildSystemInstruction(user.dna) }
-  });
-  return response.text;
+  return response.text || "Institutional advisory synthesis timed out.";
 };
 
 export const generateChatResponse = async (history: Message[], currentMessage: string, user: User, project?: Project) => {
-  const ai = getAI();
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const contents = history.map(m => ({
+    role: m.role === 'model' ? 'model' : 'user',
+    parts: [{ text: m.content }]
+  }));
+
   return await ai.models.generateContentStream({
     model: 'gemini-3-pro-preview',
-    contents: history.map(m => ({ role: m.role === 'user' ? 'user' : 'model', parts: [{ text: m.content }] })),
-    config: { systemInstruction: buildSystemInstruction(user.dna) }
+    contents: contents,
+    config: {
+      systemInstruction: buildSystemInstruction(user.dna),
+      thinkingConfig: { thinkingBudget: 20000 },
+      tools: [{ googleSearch: {} }]
+    }
   });
 };
